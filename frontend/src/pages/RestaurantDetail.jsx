@@ -78,16 +78,37 @@ const restaurant = {
   ],
 };
 
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: "http://localhost:5003/api",
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Add request interceptor to add auth token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 function RestaurantDetail() {
   const [cart, setCart] = useState({});
-  const [snackbar, setSnackbar] = useState({ open: false, message: "" });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
   const { id } = useParams();
   const navigate = useNavigate();
   const userId = "user123"; // Replace with actual user ID from auth
 
   const handleAddToCart = async (item) => {
     try {
-      await axios.post(`http://localhost:5003/api/cart/${userId}`, {
+      await api.post(`/cart/${userId}`, {
         itemId: item.id,
         name: item.name,
         price: item.price,
@@ -98,31 +119,35 @@ function RestaurantDetail() {
       setSnackbar({
         open: true,
         message: "Item added to cart successfully!",
+        severity: "success",
       });
     } catch (error) {
       console.error("Error adding item to cart:", error);
       setSnackbar({
         open: true,
-        message: "Error adding item to cart",
+        message: error.response?.data?.message || "Error adding item to cart",
+        severity: "error",
       });
     }
   };
 
   const handleUpdateQuantity = async (item, quantity) => {
     try {
-      await axios.put(`http://localhost:5003/api/cart/${userId}/${item.id}`, {
+      await api.put(`/cart/${userId}/${item.id}`, {
         quantity,
       });
 
       setSnackbar({
         open: true,
         message: "Cart updated successfully!",
+        severity: "success",
       });
     } catch (error) {
       console.error("Error updating cart:", error);
       setSnackbar({
         open: true,
-        message: "Error updating cart",
+        message: error.response?.data?.message || "Error updating cart",
+        severity: "error",
       });
     }
   };
@@ -272,7 +297,7 @@ function RestaurantDetail() {
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity="success"
+          severity={snackbar.severity}
           sx={{ width: "100%" }}
         >
           {snackbar.message}

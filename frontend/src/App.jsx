@@ -1,5 +1,11 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { ThemeProvider, createTheme } from "@mui/material";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import RestaurantList from "./pages/RestaurantList";
@@ -8,34 +14,72 @@ import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import OrderHistory from "./pages/OrderHistory";
 import OrderTracking from "./pages/OrderTracking";
+import Login from "./pages/Login";
+import authService from "./services/authService";
 
 const theme = createTheme({
   palette: {
     primary: {
-      main: "#FF4B2B",
+      main: "#1976d2",
     },
     secondary: {
-      main: "#2B2D42",
+      main: "#dc004e",
     },
   },
 });
 
+// Protected Route component
+const ProtectedRoute = ({ children }) => {
+  if (!authService.isAuthenticated()) {
+    return <Navigate to="/login" />;
+  }
+  return children;
+};
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
+      <CssBaseline />
       <Router>
-        <div className="app">
-          <Navbar />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/restaurants" element={<RestaurantList />} />
-            <Route path="/restaurant/:id" element={<RestaurantDetail />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/orders" element={<OrderHistory />} />
-            <Route path="/order/:id" element={<OrderTracking />} />
-          </Routes>
-        </div>
+        <Navbar />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/restaurants" element={<RestaurantList />} />
+          <Route path="/restaurants/:id" element={<RestaurantDetail />} />
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/cart"
+            element={
+              <ProtectedRoute>
+                <Cart />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/checkout"
+            element={
+              <ProtectedRoute>
+                <Checkout />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <ProtectedRoute>
+                <OrderHistory />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders/:id"
+            element={
+              <ProtectedRoute>
+                <OrderTracking />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
       </Router>
     </ThemeProvider>
   );
