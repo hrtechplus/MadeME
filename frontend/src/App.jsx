@@ -18,6 +18,7 @@ import OrderTracking from "./pages/OrderTracking";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Orders from "./pages/Orders";
 
 const theme = createTheme({
   palette: {
@@ -99,7 +100,7 @@ function App() {
               flexGrow: 1,
               pt: 8, // Add padding for fixed navbar
               minHeight: "100vh",
-              background: "linear-gradient(180deg, #f5f5f5 0%, #e8e8e8 100%)",
+              background: "linear-gradient(45deg, #f5f5f5 30%, #e0e0e0 90%)",
             }}
           >
             <Routes>
@@ -128,7 +129,7 @@ function App() {
                 path="/orders"
                 element={
                   <ProtectedRoute>
-                    <OrderHistory />
+                    <Orders />
                   </ProtectedRoute>
                 }
               />

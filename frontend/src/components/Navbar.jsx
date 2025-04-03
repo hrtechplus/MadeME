@@ -13,14 +13,13 @@ import {
 } from "@mui/material";
 import {
   ShoppingCart,
-  AccountCircle,
-  ExitToApp,
+  Person,
+  Logout,
   Restaurant,
   History,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import authService from "../services/authService";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -30,7 +29,8 @@ function Navbar() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    setIsAuthenticated(authService.isAuthenticated());
+    const token = localStorage.getItem("token");
+    setIsAuthenticated(!!token);
 
     // Handle scroll effect
     const handleScroll = () => {
@@ -49,7 +49,8 @@ function Navbar() {
   };
 
   const handleLogout = () => {
-    authService.logout();
+    localStorage.removeItem("token");
+    localStorage.removeItem("userId");
     setIsAuthenticated(false);
     handleMenuClose();
     navigate("/login");
@@ -59,13 +60,14 @@ function Navbar() {
     <AppBar
       position="fixed"
       sx={{
-        background: scrolled ? "rgba(255, 255, 255, 0.95)" : "transparent",
-        backdropFilter: "blur(10px)",
-        boxShadow: scrolled ? "0 2px 10px rgba(0, 0, 0, 0.1)" : "none",
+        background: scrolled
+          ? "rgba(255, 255, 255, 0.95)"
+          : "linear-gradient(45deg, #1976d2 30%, #2196f3 90%)",
+        boxShadow: scrolled ? 3 : 0,
         transition: "all 0.3s ease",
       }}
     >
-      <Toolbar sx={{ maxWidth: "1200px", width: "100%", mx: "auto" }}>
+      <Toolbar>
         <Typography
           variant="h6"
           component="div"
@@ -73,21 +75,16 @@ function Navbar() {
             flexGrow: 1,
             cursor: "pointer",
             fontWeight: "bold",
-            background: "linear-gradient(45deg, #1976d2, #2196f3)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            transition: "all 0.3s ease",
-            "&:hover": {
-              transform: "scale(1.05)",
-            },
+            color: scrolled ? "primary.main" : "white",
           }}
           onClick={() => navigate("/")}
         >
-          FoodDelivery
+          Food Delivery
         </Typography>
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Button
-            color="inherit"
+            color={scrolled ? "primary" : "inherit"}
             onClick={() => navigate("/restaurants")}
             startIcon={<Restaurant />}
             sx={{
@@ -101,47 +98,22 @@ function Navbar() {
           </Button>
           {isAuthenticated ? (
             <>
-              <Button
-                color="inherit"
-                onClick={() => navigate("/orders")}
-                startIcon={<History />}
-                sx={{
-                  borderRadius: 2,
-                  "&:hover": {
-                    background: "rgba(25, 118, 210, 0.1)",
-                  },
-                }}
-              >
-                Orders
-              </Button>
               <IconButton
-                color="inherit"
+                color={scrolled ? "primary" : "inherit"}
                 onClick={() => navigate("/cart")}
-                sx={{
-                  borderRadius: 2,
-                  "&:hover": {
-                    background: "rgba(25, 118, 210, 0.1)",
-                  },
-                }}
               >
                 <Badge badgeContent={cartItems} color="error">
                   <ShoppingCart />
                 </Badge>
               </IconButton>
+
               <IconButton
-                color="inherit"
+                color={scrolled ? "primary" : "inherit"}
                 onClick={handleMenuOpen}
-                sx={{
-                  borderRadius: 2,
-                  "&:hover": {
-                    background: "rgba(25, 118, 210, 0.1)",
-                  },
-                }}
               >
-                <Avatar sx={{ width: 32, height: 32, bgcolor: "#1976d2" }}>
-                  <AccountCircle />
-                </Avatar>
+                <Avatar sx={{ width: 32, height: 32 }} />
               </IconButton>
+
               <Menu
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
@@ -149,31 +121,51 @@ function Navbar() {
                 PaperProps={{
                   sx: {
                     mt: 1.5,
+                    minWidth: 200,
                     borderRadius: 2,
-                    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
                   },
                 }}
               >
-                <MenuItem onClick={handleLogout} sx={{ py: 1 }}>
-                  <ExitToApp sx={{ mr: 1 }} /> Logout
+                <MenuItem onClick={() => navigate("/orders")}>
+                  <History sx={{ mr: 1 }} /> Order History
+                </MenuItem>
+                <Divider />
+                <MenuItem onClick={handleLogout}>
+                  <Logout sx={{ mr: 1 }} /> Logout
                 </MenuItem>
               </Menu>
             </>
           ) : (
-            <Button
-              color="inherit"
-              onClick={() => navigate("/login")}
-              sx={{
-                borderRadius: 2,
-                background: "linear-gradient(45deg, #1976d2, #2196f3)",
-                "&:hover": {
-                  background: "linear-gradient(45deg, #1565c0, #1e88e5)",
-                },
-                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-              }}
-            >
-              Login
-            </Button>
+            <>
+              <Button
+                color={scrolled ? "primary" : "inherit"}
+                onClick={() => navigate("/login")}
+                sx={{
+                  textTransform: "none",
+                  fontWeight: "bold",
+                }}
+              >
+                Login
+              </Button>
+              <Button
+                variant="contained"
+                onClick={() => navigate("/register")}
+                sx={{
+                  textTransform: "none",
+                  fontWeight: "bold",
+                  borderRadius: 2,
+                  background:
+                    "linear-gradient(45deg, #1976d2 30%, #2196f3 90%)",
+                  "&:hover": {
+                    background:
+                      "linear-gradient(45deg, #1565c0 30%, #1e88e5 90%)",
+                  },
+                }}
+              >
+                Sign Up
+              </Button>
+            </>
           )}
         </Box>
       </Toolbar>
