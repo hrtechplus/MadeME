@@ -43,30 +43,6 @@ const api = axios.create({
   timeout: 5000, // Add timeout
 });
 
-// Add request interceptor to add auth token
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Add response interceptor for error handling
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.code === "ECONNREFUSED") {
-      setSnackbar({
-        open: true,
-        message: "Unable to connect to the server. Please try again later.",
-        severity: "error",
-      });
-    }
-    return Promise.reject(error);
-  }
-);
-
 // Spoonacular API configuration
 const SPOONACULAR_API_KEY = "YOUR_SPOONACULAR_API_KEY"; // Replace with your API key
 const spoonacularApi = axios.create({
@@ -77,25 +53,57 @@ const spoonacularApi = axios.create({
 });
 
 function RestaurantDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
   const [restaurant, setRestaurant] = useState(null);
   const [menu, setMenu] = useState([]);
   const [cart, setCart] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState(0);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "info",
   });
-  const [activeTab, setActiveTab] = useState(0);
-  const { id } = useParams();
-  const navigate = useNavigate();
   const userId = localStorage.getItem("userId");
 
   useEffect(() => {
     fetchRestaurantData();
     fetchCart();
   }, [id]);
+
+  // Add request interceptor to add auth token
+  useEffect(() => {
+    const requestInterceptor = api.interceptors.request.use((config) => {
+      const token = localStorage.getItem("token");
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    });
+
+    // Add response interceptor for error handling
+    const responseInterceptor = api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.code === "ECONNREFUSED") {
+          setSnackbar({
+            open: true,
+            message: "Unable to connect to the server. Please try again later.",
+            severity: "error",
+          });
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    // Cleanup interceptors on component unmount
+    return () => {
+      api.interceptors.request.eject(requestInterceptor);
+      api.interceptors.response.eject(responseInterceptor);
+    };
+  }, []);
 
   const fetchRestaurantData = async () => {
     try {
