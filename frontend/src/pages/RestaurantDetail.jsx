@@ -19,8 +19,18 @@ import {
   Stepper,
   Step,
   StepLabel,
+  CircularProgress,
+  Tabs,
+  Tab,
 } from "@mui/material";
-import { Add, Remove, ShoppingCart } from "@mui/icons-material";
+import {
+  Add,
+  Remove,
+  ShoppingCart,
+  Favorite,
+  Share,
+  Star,
+} from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -41,78 +51,59 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Sample data - replace with actual API data
-const restaurant = {
-  id: 1,
-  name: "Pizza Palace",
-  cuisine: "Italian",
-  rating: 4.5,
-  deliveryTime: "30-45",
-  minOrder: 15,
-  imageUrl: "https://source.unsplash.com/random/1200x400/?pizza-restaurant",
-  description:
-    "Authentic Italian pizzeria serving wood-fired pizzas and traditional pasta dishes.",
-  address: "123 Main St, City, State 12345",
-  tags: ["Pizza", "Pasta", "Italian"],
-  menu: [
-    {
-      category: "Pizzas",
-      items: [
-        {
-          id: "p1",
-          name: "Margherita",
-          description: "Fresh tomatoes, mozzarella, basil",
-          price: 14.99,
-          imageUrl:
-            "https://source.unsplash.com/random/400x300/?margherita-pizza",
-        },
-        {
-          id: "p2",
-          name: "Pepperoni",
-          description: "Classic pepperoni with mozzarella",
-          price: 16.99,
-          imageUrl:
-            "https://source.unsplash.com/random/400x300/?pepperoni-pizza",
-        },
-      ],
-    },
-    {
-      category: "Pasta",
-      items: [
-        {
-          id: "pa1",
-          name: "Spaghetti Carbonara",
-          description: "Creamy sauce with pancetta and parmesan",
-          price: 15.99,
-          imageUrl: "https://source.unsplash.com/random/400x300/?carbonara",
-        },
-        {
-          id: "pa2",
-          name: "Fettuccine Alfredo",
-          description: "Classic creamy alfredo sauce",
-          price: 14.99,
-          imageUrl: "https://source.unsplash.com/random/400x300/?pasta-alfredo",
-        },
-      ],
-    },
-  ],
-};
+// Spoonacular API configuration
+const SPOONACULAR_API_KEY = "YOUR_SPOONACULAR_API_KEY"; // Replace with your API key
+const spoonacularApi = axios.create({
+  baseURL: "https://api.spoonacular.com",
+  params: {
+    apiKey: SPOONACULAR_API_KEY,
+  },
+});
 
 function RestaurantDetail() {
+  const [restaurant, setRestaurant] = useState(null);
+  const [menu, setMenu] = useState([]);
   const [cart, setCart] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success",
   });
-  const [activeStep, setActiveStep] = useState(0);
+  const [activeTab, setActiveTab] = useState(0);
   const { id } = useParams();
   const navigate = useNavigate();
   const userId = localStorage.getItem("userId");
 
   useEffect(() => {
+    fetchRestaurantData();
     fetchCart();
-  }, []);
+  }, [id]);
+
+  const fetchRestaurantData = async () => {
+    try {
+      setLoading(true);
+      // Fetch restaurant details from Spoonacular
+      const [restaurantResponse, menuResponse] = await Promise.all([
+        spoonacularApi.get(`/food/restaurants/${id}`),
+        spoonacularApi.get(`/food/menuItems/search`, {
+          params: {
+            restaurantId: id,
+            number: 20,
+          },
+        }),
+      ]);
+
+      setRestaurant(restaurantResponse.data);
+      setMenu(menuResponse.data.menuItems);
+    } catch (error) {
+      console.error("Error fetching restaurant data:", error);
+      setError("Failed to load restaurant data");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchCart = async () => {
     try {
@@ -132,10 +123,11 @@ function RestaurantDetail() {
     try {
       await api.post(`/cart/${userId}`, {
         itemId: item.id,
-        name: item.name,
+        name: item.title,
         price: item.price,
         quantity: 1,
-        restaurantId: restaurant.id,
+        restaurantId: id,
+        image: item.image,
       });
 
       await fetchCart();
@@ -180,7 +172,41 @@ function RestaurantDetail() {
     navigate("/checkout");
   };
 
-  const steps = ["Select Items", "Review Cart", "Payment"];
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "80vh",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error || !restaurant) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, textAlign: "center" }}>
+        <Typography variant="h5" color="error">
+          {error || "Restaurant not found"}
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={() => navigate("/restaurants")}
+          sx={{ mt: 2 }}
+        >
+          Back to Restaurants
+        </Button>
+      </Container>
+    );
+  }
 
   return (
     <Box>
@@ -188,38 +214,96 @@ function RestaurantDetail() {
       <Box
         sx={{
           position: "relative",
-          height: "300px",
-          backgroundImage: `url(${restaurant.imageUrl})`,
+          height: "400px",
+          backgroundImage: `url(${restaurant.image})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           mb: 4,
-        }}
-      >
-        <Box
-          sx={{
+          "&::before": {
+            content: '""',
             position: "absolute",
-            bottom: 0,
+            top: 0,
             left: 0,
             right: 0,
-            bgcolor: "rgba(0, 0, 0, 0.7)",
-            color: "white",
-            p: 3,
-          }}
-        >
-          <Container maxWidth="lg">
-            <Typography variant="h3" gutterBottom>
+            bottom: 0,
+            background:
+              "linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.7))",
+          },
+        }}
+      >
+        <Container maxWidth="lg">
+          <Box
+            sx={{
+              position: "relative",
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "flex-end",
+              color: "white",
+              pb: 4,
+            }}
+          >
+            <Typography variant="h2" gutterBottom sx={{ fontWeight: "bold" }}>
               {restaurant.name}
             </Typography>
-            <Box sx={{ display: "flex", gap: 2, mb: 1 }}>
+            <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
               <Rating value={restaurant.rating} precision={0.1} readOnly />
-              <Typography>{restaurant.rating} stars</Typography>
+              <Typography variant="h6">{restaurant.rating} stars</Typography>
             </Box>
-            <Typography variant="subtitle1">
-              {restaurant.cuisine} • {restaurant.deliveryTime} mins • $
-              {restaurant.minOrder} min
-            </Typography>
-          </Container>
-        </Box>
+            <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+              <Chip
+                label={restaurant.cuisine}
+                sx={{
+                  backgroundColor: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  fontWeight: "bold",
+                }}
+              />
+              <Chip
+                label={`${restaurant.deliveryTime} mins`}
+                sx={{
+                  backgroundColor: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  fontWeight: "bold",
+                }}
+              />
+              <Chip
+                label={`$${restaurant.minOrder} min`}
+                sx={{
+                  backgroundColor: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  fontWeight: "bold",
+                }}
+              />
+            </Box>
+            <Box sx={{ display: "flex", gap: 2 }}>
+              <Button
+                variant="contained"
+                startIcon={<Favorite />}
+                sx={{
+                  backgroundColor: "rgba(255,255,255,0.2)",
+                  "&:hover": {
+                    backgroundColor: "rgba(255,255,255,0.3)",
+                  },
+                }}
+              >
+                Save
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<Share />}
+                sx={{
+                  backgroundColor: "rgba(255,255,255,0.2)",
+                  "&:hover": {
+                    backgroundColor: "rgba(255,255,255,0.3)",
+                  },
+                }}
+              >
+                Share
+              </Button>
+            </Box>
+          </Box>
+        </Container>
       </Box>
 
       <Container maxWidth="lg">
@@ -233,8 +317,8 @@ function RestaurantDetail() {
             background: "linear-gradient(145deg, #ffffff, #f0f0f0)",
           }}
         >
-          <Stepper activeStep={activeStep} alternativeLabel>
-            {steps.map((label) => (
+          <Stepper activeStep={0} alternativeLabel>
+            {["Select Items", "Review Cart", "Payment"].map((label) => (
               <Step key={label}>
                 <StepLabel>{label}</StepLabel>
               </Step>
