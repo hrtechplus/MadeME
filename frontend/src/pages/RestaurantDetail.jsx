@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Container,
   Typography,
@@ -16,10 +16,30 @@ import {
   Divider,
   IconButton,
   Paper,
+  Stepper,
+  Step,
+  StepLabel,
 } from "@mui/material";
-import { Add, Remove } from "@mui/icons-material";
+import { Add, Remove, ShoppingCart } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: "http://localhost:5003/api",
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Add request interceptor to add auth token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 // Sample data - replace with actual API data
 const restaurant = {
@@ -78,23 +98,6 @@ const restaurant = {
   ],
 };
 
-// Create axios instance with default config
-const api = axios.create({
-  baseURL: "http://localhost:5003/api",
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-// Add request interceptor to add auth token
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
 function RestaurantDetail() {
   const [cart, setCart] = useState({});
   const [snackbar, setSnackbar] = useState({
@@ -102,9 +105,28 @@ function RestaurantDetail() {
     message: "",
     severity: "success",
   });
+  const [activeStep, setActiveStep] = useState(0);
   const { id } = useParams();
   const navigate = useNavigate();
-  const userId = "user123"; // Replace with actual user ID from auth
+  const userId = localStorage.getItem("userId");
+
+  useEffect(() => {
+    fetchCart();
+  }, []);
+
+  const fetchCart = async () => {
+    try {
+      const response = await api.get(`/cart/${userId}`);
+      const cartItems = response.data.items || [];
+      const cartMap = {};
+      cartItems.forEach((item) => {
+        cartMap[item.itemId] = item;
+      });
+      setCart(cartMap);
+    } catch (error) {
+      console.error("Error fetching cart:", error);
+    }
+  };
 
   const handleAddToCart = async (item) => {
     try {
@@ -116,6 +138,7 @@ function RestaurantDetail() {
         restaurantId: restaurant.id,
       });
 
+      await fetchCart();
       setSnackbar({
         open: true,
         message: "Item added to cart successfully!",
@@ -137,6 +160,7 @@ function RestaurantDetail() {
         quantity,
       });
 
+      await fetchCart();
       setSnackbar({
         open: true,
         message: "Cart updated successfully!",
@@ -151,6 +175,12 @@ function RestaurantDetail() {
       });
     }
   };
+
+  const handleProceedToCheckout = () => {
+    navigate("/checkout");
+  };
+
+  const steps = ["Select Items", "Review Cart", "Payment"];
 
   return (
     <Box>
@@ -193,6 +223,25 @@ function RestaurantDetail() {
       </Box>
 
       <Container maxWidth="lg">
+        {/* Progress Stepper */}
+        <Paper
+          elevation={3}
+          sx={{
+            p: 3,
+            mb: 4,
+            borderRadius: 2,
+            background: "linear-gradient(145deg, #ffffff, #f0f0f0)",
+          }}
+        >
+          <Stepper activeStep={activeStep} alternativeLabel>
+            {steps.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+        </Paper>
+
         {/* Restaurant Info */}
         <Grid container spacing={4} sx={{ mb: 4 }}>
           <Grid item xs={12} md={8}>
@@ -204,7 +253,16 @@ function RestaurantDetail() {
             </Typography>
             <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
               {restaurant.tags.map((tag) => (
-                <Chip key={tag} label={tag} variant="outlined" />
+                <Chip
+                  key={tag}
+                  label={tag}
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 1,
+                    borderColor: "primary.main",
+                    color: "primary.main",
+                  }}
+                />
               ))}
             </Box>
           </Grid>
@@ -213,22 +271,44 @@ function RestaurantDetail() {
         {/* Menu */}
         {restaurant.menu.map((category) => (
           <Box key={category.category} sx={{ mb: 6 }}>
-            <Typography variant="h5" gutterBottom>
+            <Typography
+              variant="h5"
+              gutterBottom
+              sx={{
+                fontWeight: "bold",
+                background: "linear-gradient(45deg, #1976d2, #2196f3)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
               {category.category}
             </Typography>
             <Divider sx={{ mb: 3 }} />
             <Grid container spacing={4}>
               {category.items.map((item) => (
                 <Grid item key={item.id} xs={12} sm={6} md={4}>
-                  <Card>
+                  <Card
+                    sx={{
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      transition: "transform 0.2s ease-in-out",
+                      "&:hover": {
+                        transform: "translateY(-4px)",
+                      },
+                    }}
+                  >
                     <CardMedia
                       component="img"
                       height="200"
                       image={item.imageUrl}
                       alt={item.name}
+                      sx={{ objectFit: "cover" }}
                     />
-                    <CardContent>
-                      <Typography variant="h6">{item.name}</Typography>
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Typography variant="h6" gutterBottom>
+                        {item.name}
+                      </Typography>
                       <Typography
                         variant="body2"
                         color="text.secondary"
@@ -236,7 +316,11 @@ function RestaurantDetail() {
                       >
                         {item.description}
                       </Typography>
-                      <Typography variant="h6" color="primary">
+                      <Typography
+                        variant="h6"
+                        color="primary"
+                        sx={{ fontWeight: "bold" }}
+                      >
                         ${item.price.toFixed(2)}
                       </Typography>
                     </CardContent>
@@ -257,6 +341,13 @@ function RestaurantDetail() {
                                 cart[item.id].quantity - 1
                               )
                             }
+                            disabled={cart[item.id].quantity <= 1}
+                            sx={{
+                              borderRadius: 1,
+                              "&:hover": {
+                                background: "rgba(25, 118, 210, 0.1)",
+                              },
+                            }}
                           >
                             <Remove />
                           </IconButton>
@@ -268,6 +359,12 @@ function RestaurantDetail() {
                                 cart[item.id].quantity + 1
                               )
                             }
+                            sx={{
+                              borderRadius: 1,
+                              "&:hover": {
+                                background: "rgba(25, 118, 210, 0.1)",
+                              },
+                            }}
                           >
                             <Add />
                           </IconButton>
@@ -277,6 +374,16 @@ function RestaurantDetail() {
                           fullWidth
                           variant="contained"
                           onClick={() => handleAddToCart(item)}
+                          startIcon={<ShoppingCart />}
+                          sx={{
+                            borderRadius: 2,
+                            background:
+                              "linear-gradient(45deg, #1976d2, #2196f3)",
+                            "&:hover": {
+                              background:
+                                "linear-gradient(45deg, #1565c0, #1e88e5)",
+                            },
+                          }}
                         >
                           Add to Cart
                         </Button>
@@ -288,6 +395,37 @@ function RestaurantDetail() {
             </Grid>
           </Box>
         ))}
+
+        {/* Checkout Button */}
+        {Object.keys(cart).length > 0 && (
+          <Box
+            sx={{
+              position: "fixed",
+              bottom: 20,
+              right: 20,
+              zIndex: 1000,
+            }}
+          >
+            <Button
+              variant="contained"
+              size="large"
+              onClick={handleProceedToCheckout}
+              startIcon={<ShoppingCart />}
+              sx={{
+                borderRadius: 2,
+                px: 4,
+                py: 1.5,
+                background: "linear-gradient(45deg, #1976d2, #2196f3)",
+                "&:hover": {
+                  background: "linear-gradient(45deg, #1565c0, #1e88e5)",
+                },
+                boxShadow: "0 4px 20px rgba(0, 0, 0, 0.2)",
+              }}
+            >
+              Proceed to Checkout ({Object.keys(cart).length} items)
+            </Button>
+          </Box>
+        )}
       </Container>
 
       <Snackbar
@@ -298,7 +436,7 @@ function RestaurantDetail() {
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
-          sx={{ width: "100%" }}
+          sx={{ width: "100%", borderRadius: 2 }}
         >
           {snackbar.message}
         </Alert>
