@@ -6,24 +6,21 @@ services:
     ports:
       - "5003:5003"
     environment:
-      - MONGODB_URI=mongodb://mongo:27017/cart-service
+      - MONGODB_URI=mongodb+srv://hasinduonline:RUMU0ZWrquTkqikF@cluster0.ecidohi.mongodb.net/cart-service?retryWrites=true&w=majority&appName=Cluster0
       - JWT_SECRET=your_jwt_secret_key
       - PORT=5003
-    depends_on:
-      - mongo
 
   order-service:
     build: ./order-service
     ports:
       - "5001:5001"
     environment:
-      - MONGODB_URI=mongodb://mongo:27017/order-service
+      - MONGODB_URI=mongodb+srv://hasinduonline:RUMU0ZWrquTkqikF@cluster0.ecidohi.mongodb.net/order-service?retryWrites=true&w=majority&appName=Cluster0
       - JWT_SECRET=your_jwt_secret_key
       - CART_SERVICE_URL=http://cart-service:5003
       - PAYMENT_SERVICE_URL=http://payment-service:5002
       - PORT=5001
     depends_on:
-      - mongo
       - cart-service
 
   payment-service:
@@ -31,22 +28,11 @@ services:
     ports:
       - "5002:5002"
     environment:
-      - MONGODB_URI=mongodb://mongo:27017/payment-service
+      - MONGODB_URI=mongodb+srv://hasinduonline:RUMU0ZWrquTkqikF@cluster0.ecidohi.mongodb.net/payment-service?retryWrites=true&w=majority&appName=Cluster0
       - JWT_SECRET=your_jwt_secret_key
       - STRIPE_SECRET_KEY=your_stripe_secret_key
       - STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
       - ORDER_SERVICE_URL=http://order-service:5001
       - PORT=5002
     depends_on:
-      - mongo
       - order-service
-
-  mongo:
-    image: mongo:latest
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-
-volumes:
-  mongodb_data:
