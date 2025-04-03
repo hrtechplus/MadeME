@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
+import Box from "@mui/material/Box";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import RestaurantList from "./pages/RestaurantList";
@@ -15,8 +16,8 @@ import Checkout from "./pages/Checkout";
 import OrderHistory from "./pages/OrderHistory";
 import OrderTracking from "./pages/OrderTracking";
 import Login from "./pages/Login";
-import authService from "./services/authService";
-import { Box } from "@mui/material";
+import Register from "./pages/Register";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const theme = createTheme({
   palette: {
@@ -83,66 +84,64 @@ const theme = createTheme({
   },
 });
 
-// Protected Route component
-const ProtectedRoute = ({ children }) => {
-  if (!authService.isAuthenticated()) {
-    return <Navigate to="/login" />;
-  }
-  return children;
-};
-
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-        <Navbar />
         <Box
-          component="main"
-          sx={{
-            pt: 8, // Add padding for fixed navbar
-            minHeight: "100vh",
-            background: "linear-gradient(180deg, #f5f5f5 0%, #e8e8e8 100%)",
-          }}
+          sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
         >
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/restaurants" element={<RestaurantList />} />
-            <Route path="/restaurants/:id" element={<RestaurantDetail />} />
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/cart"
-              element={
-                <ProtectedRoute>
-                  <Cart />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/checkout"
-              element={
-                <ProtectedRoute>
-                  <Checkout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/orders"
-              element={
-                <ProtectedRoute>
-                  <OrderHistory />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/orders/:id"
-              element={
-                <ProtectedRoute>
-                  <OrderTracking />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
+          <Navbar />
+          <Box
+            component="main"
+            sx={{
+              flexGrow: 1,
+              pt: 8, // Add padding for fixed navbar
+              minHeight: "100vh",
+              background: "linear-gradient(180deg, #f5f5f5 0%, #e8e8e8 100%)",
+            }}
+          >
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/restaurants" element={<RestaurantList />} />
+              <Route path="/restaurant/:id" element={<RestaurantDetail />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route
+                path="/cart"
+                element={
+                  <ProtectedRoute>
+                    <Cart />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/checkout"
+                element={
+                  <ProtectedRoute>
+                    <Checkout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/orders"
+                element={
+                  <ProtectedRoute>
+                    <OrderHistory />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/order/:id"
+                element={
+                  <ProtectedRoute>
+                    <OrderTracking />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </Box>
         </Box>
       </Router>
     </ThemeProvider>

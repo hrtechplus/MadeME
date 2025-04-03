@@ -34,12 +34,13 @@ import {
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 
-// Create axios instance with default config
+// Update API configuration
 const api = axios.create({
   baseURL: "http://localhost:5003/api",
   headers: {
     "Content-Type": "application/json",
   },
+  timeout: 5000, // Add timeout
 });
 
 // Add request interceptor to add auth token
@@ -50,6 +51,21 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Add response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.code === "ECONNREFUSED") {
+      setSnackbar({
+        open: true,
+        message: "Unable to connect to the server. Please try again later.",
+        severity: "error",
+      });
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Spoonacular API configuration
 const SPOONACULAR_API_KEY = "YOUR_SPOONACULAR_API_KEY"; // Replace with your API key
@@ -69,7 +85,7 @@ function RestaurantDetail() {
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
-    severity: "success",
+    severity: "info",
   });
   const [activeTab, setActiveTab] = useState(0);
   const { id } = useParams();
@@ -84,19 +100,89 @@ function RestaurantDetail() {
   const fetchRestaurantData = async () => {
     try {
       setLoading(true);
-      // Fetch restaurant details from Spoonacular
-      const [restaurantResponse, menuResponse] = await Promise.all([
-        spoonacularApi.get(`/food/restaurants/${id}`),
-        spoonacularApi.get(`/food/menuItems/search`, {
-          params: {
-            restaurantId: id,
-            number: 20,
-          },
-        }),
-      ]);
+      // For development, use mock data if API is not available
+      const mockRestaurant = {
+        id: id,
+        name: "Sample Restaurant",
+        cuisine: "Italian",
+        rating: 4.5,
+        deliveryTime: "30-45",
+        minOrder: 15,
+        image: "https://source.unsplash.com/random/1200x400/?restaurant",
+        description: "A sample restaurant description.",
+        address: "123 Main St, City, State 12345",
+      };
 
-      setRestaurant(restaurantResponse.data);
-      setMenu(menuResponse.data.menuItems);
+      const mockMenu = [
+        {
+          title: "Appetizers",
+          items: [
+            {
+              id: "1",
+              title: "Bruschetta",
+              description:
+                "Toasted bread topped with tomatoes, garlic, and basil",
+              price: 8.99,
+              image: "https://source.unsplash.com/random/400x300/?bruschetta",
+              rating: 4.5,
+              reviewCount: 120,
+            },
+            {
+              id: "2",
+              title: "Calamari",
+              description: "Crispy fried squid with marinara sauce",
+              price: 12.99,
+              image: "https://source.unsplash.com/random/400x300/?calamari",
+              rating: 4.2,
+              reviewCount: 85,
+            },
+          ],
+        },
+        {
+          title: "Main Courses",
+          items: [
+            {
+              id: "3",
+              title: "Margherita Pizza",
+              description:
+                "Classic pizza with tomato sauce, mozzarella, and basil",
+              price: 14.99,
+              image: "https://source.unsplash.com/random/400x300/?pizza",
+              rating: 4.7,
+              reviewCount: 230,
+            },
+            {
+              id: "4",
+              title: "Spaghetti Carbonara",
+              description: "Pasta with creamy sauce, pancetta, and parmesan",
+              price: 16.99,
+              image: "https://source.unsplash.com/random/400x300/?carbonara",
+              rating: 4.6,
+              reviewCount: 180,
+            },
+          ],
+        },
+      ];
+
+      // Try to fetch from API first
+      try {
+        const [restaurantResponse, menuResponse] = await Promise.all([
+          spoonacularApi.get(`/food/restaurants/${id}`),
+          spoonacularApi.get(`/food/menuItems/search`, {
+            params: {
+              restaurantId: id,
+              number: 20,
+            },
+          }),
+        ]);
+
+        setRestaurant(restaurantResponse.data);
+        setMenu(menuResponse.data.menuItems);
+      } catch (apiError) {
+        console.warn("Using mock data due to API error:", apiError);
+        setRestaurant(mockRestaurant);
+        setMenu(mockMenu);
+      }
     } catch (error) {
       console.error("Error fetching restaurant data:", error);
       setError("Failed to load restaurant data");
@@ -116,6 +202,8 @@ function RestaurantDetail() {
       setCart(cartMap);
     } catch (error) {
       console.error("Error fetching cart:", error);
+      // Initialize empty cart if API is not available
+      setCart({});
     }
   };
 
@@ -352,133 +440,141 @@ function RestaurantDetail() {
           </Grid>
         </Grid>
 
-        {/* Menu */}
-        {restaurant.menu.map((category) => (
-          <Box key={category.category} sx={{ mb: 6 }}>
-            <Typography
-              variant="h5"
-              gutterBottom
-              sx={{
+        {/* Menu Tabs */}
+        <Paper
+          elevation={3}
+          sx={{
+            mb: 4,
+            borderRadius: 2,
+            background: "linear-gradient(145deg, #ffffff, #f0f0f0)",
+          }}
+        >
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              borderBottom: 1,
+              borderColor: "divider",
+              "& .MuiTab-root": {
                 fontWeight: "bold",
-                background: "linear-gradient(45deg, #1976d2, #2196f3)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              {category.category}
-            </Typography>
-            <Divider sx={{ mb: 3 }} />
-            <Grid container spacing={4}>
-              {category.items.map((item) => (
-                <Grid item key={item.id} xs={12} sm={6} md={4}>
-                  <Card
-                    sx={{
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                      transition: "transform 0.2s ease-in-out",
-                      "&:hover": {
-                        transform: "translateY(-4px)",
-                      },
-                    }}
+                textTransform: "none",
+                fontSize: "1.1rem",
+              },
+            }}
+          >
+            {menu.map((category, index) => (
+              <Tab key={index} label={category.title} />
+            ))}
+          </Tabs>
+        </Paper>
+
+        {/* Menu Items */}
+        <Grid container spacing={4}>
+          {menu[activeTab]?.items?.map((item) => (
+            <Grid key={item.id} xs={12} sm={6} md={4}>
+              <Card
+                sx={{
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  transition: "transform 0.2s ease-in-out",
+                  "&:hover": {
+                    transform: "translateY(-4px)",
+                  },
+                }}
+              >
+                <CardMedia
+                  component="img"
+                  height="200"
+                  image={item.image}
+                  alt={item.title}
+                  sx={{ objectFit: "cover" }}
+                />
+                <CardContent sx={{ flexGrow: 1 }}>
+                  <Typography variant="h6" gutterBottom>
+                    {item.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" paragraph>
+                    {item.description}
+                  </Typography>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Star color="primary" />
+                    <Typography variant="body2" color="text.secondary">
+                      {item.rating} ({item.reviewCount} reviews)
+                    </Typography>
+                  </Box>
+                  <Typography
+                    variant="h6"
+                    color="primary"
+                    sx={{ fontWeight: "bold", mt: 1 }}
                   >
-                    <CardMedia
-                      component="img"
-                      height="200"
-                      image={item.imageUrl}
-                      alt={item.name}
-                      sx={{ objectFit: "cover" }}
-                    />
-                    <CardContent sx={{ flexGrow: 1 }}>
-                      <Typography variant="h6" gutterBottom>
-                        {item.name}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        paragraph
+                    ${item.price.toFixed(2)}
+                  </Typography>
+                </CardContent>
+                <CardActions>
+                  {cart[item.id] ? (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        width: "100%",
+                      }}
+                    >
+                      <IconButton
+                        onClick={() =>
+                          handleUpdateQuantity(item, cart[item.id].quantity - 1)
+                        }
+                        disabled={cart[item.id].quantity <= 1}
+                        sx={{
+                          borderRadius: 1,
+                          "&:hover": {
+                            background: "rgba(25, 118, 210, 0.1)",
+                          },
+                        }}
                       >
-                        {item.description}
-                      </Typography>
-                      <Typography
-                        variant="h6"
-                        color="primary"
-                        sx={{ fontWeight: "bold" }}
+                        <Remove />
+                      </IconButton>
+                      <Typography>{cart[item.id].quantity}</Typography>
+                      <IconButton
+                        onClick={() =>
+                          handleUpdateQuantity(item, cart[item.id].quantity + 1)
+                        }
+                        sx={{
+                          borderRadius: 1,
+                          "&:hover": {
+                            background: "rgba(25, 118, 210, 0.1)",
+                          },
+                        }}
                       >
-                        ${item.price.toFixed(2)}
-                      </Typography>
-                    </CardContent>
-                    <CardActions>
-                      {cart[item.id] ? (
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1,
-                            width: "100%",
-                          }}
-                        >
-                          <IconButton
-                            onClick={() =>
-                              handleUpdateQuantity(
-                                item,
-                                cart[item.id].quantity - 1
-                              )
-                            }
-                            disabled={cart[item.id].quantity <= 1}
-                            sx={{
-                              borderRadius: 1,
-                              "&:hover": {
-                                background: "rgba(25, 118, 210, 0.1)",
-                              },
-                            }}
-                          >
-                            <Remove />
-                          </IconButton>
-                          <Typography>{cart[item.id].quantity}</Typography>
-                          <IconButton
-                            onClick={() =>
-                              handleUpdateQuantity(
-                                item,
-                                cart[item.id].quantity + 1
-                              )
-                            }
-                            sx={{
-                              borderRadius: 1,
-                              "&:hover": {
-                                background: "rgba(25, 118, 210, 0.1)",
-                              },
-                            }}
-                          >
-                            <Add />
-                          </IconButton>
-                        </Box>
-                      ) : (
-                        <Button
-                          fullWidth
-                          variant="contained"
-                          onClick={() => handleAddToCart(item)}
-                          startIcon={<ShoppingCart />}
-                          sx={{
-                            borderRadius: 2,
-                            background:
-                              "linear-gradient(45deg, #1976d2, #2196f3)",
-                            "&:hover": {
-                              background:
-                                "linear-gradient(45deg, #1565c0, #1e88e5)",
-                            },
-                          }}
-                        >
-                          Add to Cart
-                        </Button>
-                      )}
-                    </CardActions>
-                  </Card>
-                </Grid>
-              ))}
+                        <Add />
+                      </IconButton>
+                    </Box>
+                  ) : (
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      onClick={() => handleAddToCart(item)}
+                      startIcon={<ShoppingCart />}
+                      sx={{
+                        borderRadius: 2,
+                        background: "linear-gradient(45deg, #1976d2, #2196f3)",
+                        "&:hover": {
+                          background:
+                            "linear-gradient(45deg, #1565c0, #1e88e5)",
+                        },
+                      }}
+                    >
+                      Add to Cart
+                    </Button>
+                  )}
+                </CardActions>
+              </Card>
             </Grid>
-          </Box>
-        ))}
+          ))}
+        </Grid>
 
         {/* Checkout Button */}
         {Object.keys(cart).length > 0 && (
