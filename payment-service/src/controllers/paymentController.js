@@ -1,0 +1,160 @@
+const Payment = require("../models/Payment");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const axios = require("axios");
+const { validationResult } = require("express-validator");
+
+// Create payment intent
+exports.createPaymentIntent = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { orderId, amount, userId } = req.body;
+
+    // Create a payment record
+    const payment = new Payment({
+      orderId,
+      userId,
+      amount,
+      status: "PENDING",
+    });
+
+    // Create a Stripe customer if not exists
+    let customer = await stripe.customers.list({ email: req.body.email });
+    if (customer.data.length === 0) {
+      customer = await stripe.customers.create({
+        email: req.body.email,
+        metadata: {
+          userId: userId,
+        },
+      });
+    } else {
+      customer = customer.data[0];
+    }
+
+    // Create a payment intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // Convert to cents
+      currency: "usd",
+      customer: customer.id,
+      metadata: {
+        orderId,
+        userId,
+      },
+    });
+
+    // Update payment record with Stripe details
+    payment.stripePaymentIntentId = paymentIntent.id;
+    payment.stripeCustomerId = customer.id;
+    await payment.save();
+
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+      paymentId: payment._id,
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error creating payment intent", error: error.message });
+  }
+};
+
+// Handle Stripe webhook
+exports.handleWebhook = async (req, res) => {
+  const sig = req.headers["stripe-signature"];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Handle the event
+  switch (event.type) {
+    case "payment_intent.succeeded":
+      const paymentIntent = event.data.object;
+      await handlePaymentSuccess(paymentIntent);
+      break;
+    case "payment_intent.payment_failed":
+      const failedPayment = event.data.object;
+      await handlePaymentFailure(failedPayment);
+      break;
+    default:
+      console.log(`Unhandled event type ${event.type}`);
+  }
+
+  res.json({ received: true });
+};
+
+// Get payment status
+exports.getPaymentStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const payment = await Payment.findOne({ orderId });
+
+    if (!payment) {
+      return res.status(404).json({ message: "Payment not found" });
+    }
+
+    res.json(payment);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error fetching payment status", error: error.message });
+  }
+};
+
+// Helper function to handle successful payment
+async function handlePaymentSuccess(paymentIntent) {
+  try {
+    const payment = await Payment.findOne({
+      stripePaymentIntentId: paymentIntent.id,
+    });
+    if (!payment) return;
+
+    payment.status = "SUCCESS";
+    await payment.save();
+
+    // Notify order service
+    await axios.patch(
+      `${process.env.ORDER_SERVICE_URL}/api/orders/${payment.orderId}/status`,
+      {
+        status: "CONFIRMED",
+      }
+    );
+  } catch (error) {
+    console.error("Error handling payment success:", error);
+  }
+}
+
+// Helper function to handle failed payment
+async function handlePaymentFailure(paymentIntent) {
+  try {
+    const payment = await Payment.findOne({
+      stripePaymentIntentId: paymentIntent.id,
+    });
+    if (!payment) return;
+
+    payment.status = "FAILED";
+    payment.error =
+      paymentIntent.last_payment_error?.message || "Payment failed";
+    await payment.save();
+
+    // Notify order service
+    await axios.patch(
+      `${process.env.ORDER_SERVICE_URL}/api/orders/${payment.orderId}/status`,
+      {
+        status: "FAILED",
+      }
+    );
+  } catch (error) {
+    console.error("Error handling payment failure:", error);
+  }
+}

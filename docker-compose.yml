@@ -1,0 +1,52 @@
+version: "3.8"
+
+services:
+  cart-service:
+    build: ./cart-service
+    ports:
+      - "5003:5003"
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/cart-service
+      - JWT_SECRET=your_jwt_secret_key
+      - PORT=5003
+    depends_on:
+      - mongo
+
+  order-service:
+    build: ./order-service
+    ports:
+      - "5001:5001"
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/order-service
+      - JWT_SECRET=your_jwt_secret_key
+      - CART_SERVICE_URL=http://cart-service:5003
+      - PAYMENT_SERVICE_URL=http://payment-service:5002
+      - PORT=5001
+    depends_on:
+      - mongo
+      - cart-service
+
+  payment-service:
+    build: ./payment-service
+    ports:
+      - "5002:5002"
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/payment-service
+      - JWT_SECRET=your_jwt_secret_key
+      - STRIPE_SECRET_KEY=your_stripe_secret_key
+      - STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
+      - ORDER_SERVICE_URL=http://order-service:5001
+      - PORT=5002
+    depends_on:
+      - mongo
+      - order-service
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+volumes:
+  mongodb_data:
