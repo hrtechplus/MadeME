@@ -114,6 +114,27 @@ const mockMenu = [
   },
 ];
 
+// Add request interceptor to add auth token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Add response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.code === "ECONNREFUSED") {
+      console.warn("Cart service unavailable, using local storage");
+      return Promise.reject(error);
+    }
+    return Promise.reject(error);
+  }
+);
+
 function RestaurantDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -137,50 +158,29 @@ function RestaurantDetail() {
     fetchCart();
   }, [id]);
 
-  // Add request interceptor to add auth token
-  useEffect(() => {
-    const requestInterceptor = api.interceptors.request.use((config) => {
-      const token = localStorage.getItem("token");
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
-    });
-
-    // Add response interceptor for error handling
-    const responseInterceptor = api.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.code === "ECONNREFUSED") {
-          setSnackbar({
-            open: true,
-            message: "Unable to connect to the server. Please try again later.",
-            severity: "error",
-          });
-        }
-        return Promise.reject(error);
-      }
-    );
-
-    // Cleanup interceptors on component unmount
-    return () => {
-      api.interceptors.request.eject(requestInterceptor);
-      api.interceptors.response.eject(responseInterceptor);
-    };
-  }, []);
-
   const fetchCart = async () => {
     try {
-      const response = await api.get(`/cart/${userId}`);
-      const cartItems = response.data.items || [];
-      const cartMap = {};
-      cartItems.forEach((item) => {
-        cartMap[item.itemId] = item;
-      });
-      setCart(cartMap);
+      const userId = localStorage.getItem("userId");
+      if (!userId) return;
+
+      // Try to fetch from API first
+      try {
+        const response = await api.get(`/cart/${userId}`);
+        const cartItems = response.data.items || [];
+        const cartMap = {};
+        cartItems.forEach((item) => {
+          cartMap[item.itemId] = item;
+        });
+        setCart(cartMap);
+      } catch (error) {
+        // If API fails, try to get from local storage
+        const localCart = localStorage.getItem(`cart_${userId}`);
+        if (localCart) {
+          setCart(JSON.parse(localCart));
+        }
+      }
     } catch (error) {
-      console.error("Error fetching cart:", error);
-      // Initialize empty cart if API is not available
+      console.warn("Error fetching cart:", error);
       setCart({});
     }
   };
@@ -193,12 +193,26 @@ function RestaurantDetail() {
         return;
       }
 
-      await api.post("/cart/add", {
-        userId,
-        itemId: item.id,
-        quantity: 1,
-        price: item.price,
-      });
+      // Try to add to API first
+      try {
+        await api.post("/cart/add", {
+          userId,
+          itemId: item.id,
+          quantity: 1,
+          price: item.price,
+        });
+      } catch (error) {
+        // If API fails, use local storage
+        const localCart = localStorage.getItem(`cart_${userId}`);
+        const cartItems = localCart ? JSON.parse(localCart) : {};
+        cartItems[item.id] = {
+          itemId: item.id,
+          quantity: 1,
+          price: item.price,
+          name: item.title,
+        };
+        localStorage.setItem(`cart_${userId}`, JSON.stringify(cartItems));
+      }
 
       setCart((prev) => ({
         ...prev,
@@ -206,6 +220,7 @@ function RestaurantDetail() {
           itemId: item.id,
           quantity: 1,
           price: item.price,
+          name: item.title,
         },
       }));
 
@@ -215,7 +230,7 @@ function RestaurantDetail() {
         severity: "success",
       });
     } catch (error) {
-      console.error("Error adding to cart:", error);
+      console.warn("Error adding to cart:", error);
       setSnackbar({
         open: true,
         message: "Failed to add item to cart. Please try again.",
@@ -266,181 +281,150 @@ function RestaurantDetail() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      {loading ? (
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          minHeight="60vh"
+      {/* Restaurant Header */}
+      <Box sx={{ mb: 4 }}>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={8}>
+            <Card>
+              <CardMedia
+                component="img"
+                height="400"
+                image={restaurant.image}
+                alt={restaurant.name}
+              />
+              <CardContent>
+                <Typography variant="h4" gutterBottom>
+                  {restaurant.name}
+                </Typography>
+                <Typography variant="body1" color="text.secondary" paragraph>
+                  {restaurant.description}
+                </Typography>
+                <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+                  <Chip label={restaurant.cuisine} />
+                  <Chip label={`⭐ ${restaurant.rating}`} />
+                  <Chip label={`${restaurant.deliveryTime} min`} />
+                </Box>
+                <Typography variant="body2" color="text.secondary">
+                  {restaurant.address}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Order Summary
+                </Typography>
+                {Object.keys(cart).length > 0 ? (
+                  <>
+                    {Object.values(cart).map((item) => (
+                      <Box key={item.itemId} sx={{ mb: 2 }}>
+                        <Typography variant="body2">
+                          {item.quantity}x {item.name}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          ${(item.price * item.quantity).toFixed(2)}
+                        </Typography>
+                      </Box>
+                    ))}
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      onClick={handleProceedToCheckout}
+                    >
+                      Proceed to Checkout
+                    </Button>
+                  </>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Your cart is empty
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Box>
+
+      {/* Menu Section */}
+      <Box sx={{ mb: 4 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(e, newValue) => setActiveTab(newValue)}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ mb: 3 }}
         >
-          <CircularProgress />
-        </Box>
-      ) : error ? (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          {error}
-        </Alert>
-      ) : (
-        <>
-          {/* Restaurant Header */}
-          <Box
-            sx={{
-              position: "relative",
-              height: 300,
-              mb: 4,
-              borderRadius: 2,
-              overflow: "hidden",
-            }}
-          >
-            <Box
-              component="img"
-              src={restaurant.image}
-              alt={restaurant.name}
+          {menu.map((category, index) => (
+            <Tab
+              key={index}
+              label={category.title}
               sx={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
+                textTransform: "none",
+                fontWeight: "bold",
+                minWidth: "auto",
+                px: 3,
               }}
             />
-            <Box
-              sx={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background:
-                  "linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.7))",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "flex-end",
-                p: 4,
-                color: "white",
-              }}
-            >
-              <Typography
-                variant="h3"
-                component="h1"
-                sx={{ fontWeight: "bold", mb: 1 }}
-              >
-                {restaurant.name}
-              </Typography>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                {restaurant.cuisine} • ⭐ {restaurant.rating} •{" "}
-                {restaurant.deliveryTime} min
-              </Typography>
-              <Typography>{restaurant.description}</Typography>
-            </Box>
-          </Box>
+          ))}
+        </Tabs>
 
-          {/* Menu Section */}
-          <Box sx={{ mb: 4 }}>
-            <Tabs
-              value={activeTab}
-              onChange={(e, newValue) => setActiveTab(newValue)}
-              variant="scrollable"
-              scrollButtons="auto"
-              sx={{ mb: 3 }}
-            >
-              {menu.map((category, index) => (
-                <Tab
-                  key={index}
-                  label={category.title}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: "bold",
-                    minWidth: "auto",
-                    px: 3,
-                  }}
-                />
-              ))}
-            </Tabs>
-
-            <Grid container spacing={3}>
-              {menu[activeTab]?.items.map((item) => (
-                <Grid key={item.id} xs={12} sm={6} md={4}>
-                  <Card
-                    sx={{
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                      transition: "transform 0.2s",
-                      "&:hover": {
-                        transform: "scale(1.02)",
-                      },
-                    }}
-                  >
-                    <CardMedia
-                      component="img"
-                      height="200"
-                      image={item.image}
-                      alt={item.title}
-                    />
-                    <CardContent sx={{ flexGrow: 1 }}>
-                      <Typography gutterBottom variant="h6" component="h2">
-                        {item.title}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mb: 2 }}
-                      >
-                        {item.description}
-                      </Typography>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Typography variant="h6" color="primary">
-                          ${item.price.toFixed(2)}
-                        </Typography>
-                        <Button
-                          variant="contained"
-                          onClick={() => handleAddToCart(item)}
-                          disabled={loading}
-                        >
-                          Add to Cart
-                        </Button>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-
-          {/* Checkout Button */}
-          {Object.keys(cart).length > 0 && (
-            <Box
-              sx={{
-                position: "fixed",
-                bottom: 20,
-                right: 20,
-                zIndex: 1000,
-              }}
-            >
-              <Button
-                variant="contained"
-                size="large"
-                onClick={handleProceedToCheckout}
+        <Grid container spacing={3}>
+          {menu[activeTab]?.items.map((item) => (
+            <Grid item xs={12} sm={6} md={4} key={item.id}>
+              <Card
                 sx={{
-                  borderRadius: 2,
-                  px: 4,
-                  py: 1.5,
-                  background: "linear-gradient(45deg, #1976d2, #2196f3)",
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  transition: "transform 0.2s",
                   "&:hover": {
-                    background: "linear-gradient(45deg, #1565c0, #1e88e5)",
+                    transform: "scale(1.02)",
                   },
                 }}
               >
-                Proceed to Checkout ({Object.keys(cart).length} items)
-              </Button>
-            </Box>
-          )}
-        </>
-      )}
+                <CardMedia
+                  component="img"
+                  height="200"
+                  image={item.image}
+                  alt={item.title}
+                />
+                <CardContent sx={{ flexGrow: 1 }}>
+                  <Typography gutterBottom variant="h6" component="h2">
+                    {item.title}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 2 }}
+                  >
+                    {item.description}
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Typography variant="h6" color="primary">
+                      ${item.price.toFixed(2)}
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      onClick={() => handleAddToCart(item)}
+                      disabled={loading}
+                    >
+                      Add to Cart
+                    </Button>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
 
       <Snackbar
         open={snackbar.open}
@@ -450,7 +434,7 @@ function RestaurantDetail() {
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
-          sx={{ width: "100%", borderRadius: 2 }}
+          sx={{ width: "100%" }}
         >
           {snackbar.message}
         </Alert>
