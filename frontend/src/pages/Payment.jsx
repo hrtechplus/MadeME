@@ -54,13 +54,13 @@ const Payment = () => {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { handleApiCall } = useApi();
+  const { handleApiCall, serviceUrls } = useApi();
 
   useEffect(() => {
     const verifyPayment = async () => {
       try {
         const response = await handleApiCall(
-          fetch(`http://localhost:5003/api/payment/status/${orderId}`)
+          fetch(`${serviceUrls.payment}/api/payment/status/${orderId}`)
         );
 
         if (response.data.status === "succeeded") {
@@ -74,7 +74,7 @@ const Payment = () => {
     };
 
     verifyPayment();
-  }, [orderId, handleApiCall]);
+  }, [orderId, handleApiCall, serviceUrls.payment]);
 
   const clientSecret = searchParams.get("client_secret");
 

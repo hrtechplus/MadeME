@@ -7,7 +7,7 @@ const Cart = () => {
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { handleApiCall } = useApi();
+  const { handleApiCall, serviceUrls } = useApi();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,7 +21,7 @@ const Cart = () => {
 
       try {
         const response = await handleApiCall(
-          fetch(`http://localhost:5002/api/cart/${userId}`)
+          fetch(`${serviceUrls.cart}/api/cart/${userId}`)
         );
         setCart(response.data);
       } catch (err) {
@@ -32,7 +32,7 @@ const Cart = () => {
     };
 
     fetchCart();
-  }, [handleApiCall]);
+  }, [handleApiCall, serviceUrls.cart]);
 
   const updateQuantity = async (itemId, newQuantity) => {
     if (newQuantity < 1) return;
@@ -40,7 +40,7 @@ const Cart = () => {
     try {
       const userId = localStorage.getItem("userId");
       await handleApiCall(
-        fetch(`http://localhost:5002/api/cart/${userId}/item/${itemId}`, {
+        fetch(`${serviceUrls.cart}/api/cart/${userId}/item/${itemId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -64,7 +64,7 @@ const Cart = () => {
     try {
       const userId = localStorage.getItem("userId");
       await handleApiCall(
-        fetch(`http://localhost:5002/api/cart/${userId}/item/${itemId}`, {
+        fetch(`${serviceUrls.cart}/api/cart/${userId}/item/${itemId}`, {
           method: "DELETE",
         })
       );
@@ -82,7 +82,7 @@ const Cart = () => {
     try {
       const userId = localStorage.getItem("userId");
       await handleApiCall(
-        fetch(`http://localhost:5002/api/cart/${userId}`, {
+        fetch(`${serviceUrls.cart}/api/cart/${userId}`, {
           method: "DELETE",
         })
       );

@@ -9,7 +9,7 @@ const Checkout = () => {
   const [error, setError] = useState(null);
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [paymentProcessing, setPaymentProcessing] = useState(false);
-  const { handleApiCall } = useApi();
+  const { handleApiCall, serviceUrls } = useApi();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,7 +23,7 @@ const Checkout = () => {
 
       try {
         const response = await handleApiCall(
-          fetch(`http://localhost:5002/api/cart/${userId}`)
+          fetch(`${serviceUrls.cart}/api/cart/${userId}`)
         );
         setCart(response.data);
       } catch (err) {
@@ -34,7 +34,7 @@ const Checkout = () => {
     };
 
     fetchCart();
-  }, [handleApiCall]);
+  }, [handleApiCall, serviceUrls.cart]);
 
   const handleCheckout = async () => {
     if (!deliveryAddress.trim()) {
@@ -48,7 +48,7 @@ const Checkout = () => {
 
       // Create order
       const orderResponse = await handleApiCall(
-        fetch("http://localhost:5001/api/order", {
+        fetch(`${serviceUrls.order}/api/order`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -66,7 +66,7 @@ const Checkout = () => {
 
       // Create payment intent
       const paymentResponse = await handleApiCall(
-        fetch("http://localhost:5003/api/payment/create-payment-intent", {
+        fetch(`${serviceUrls.payment}/api/payment/create-payment-intent`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
