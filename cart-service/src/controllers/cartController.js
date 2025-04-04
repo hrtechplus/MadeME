@@ -24,8 +24,7 @@ exports.addToCart = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { itemId, name, price, quantity, restaurantId } = req.body;
-    const userId = req.params.userId;
+    const { userId, itemId, name, price, quantity, restaurantId } = req.body;
 
     let cart = await Cart.findOne({ userId });
 

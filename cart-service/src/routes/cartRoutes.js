@@ -12,8 +12,9 @@ router.get("/:userId", cartController.getCart);
 
 // Add to cart
 router.post(
-  "/:userId",
+  "/add",
   [
+    body("userId").notEmpty(),
     body("itemId").notEmpty(),
     body("name").notEmpty(),
     body("price").isFloat({ min: 0 }),

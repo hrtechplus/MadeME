@@ -200,6 +200,7 @@ function RestaurantDetail() {
           itemId: item.id,
           quantity: 1,
           price: item.price,
+          name: item.title,
         });
       } catch (error) {
         // If API fails, use local storage
