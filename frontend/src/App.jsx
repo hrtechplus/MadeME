@@ -26,6 +26,7 @@ import Register from "./pages/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Orders from "./pages/Orders";
 import { ApiProvider, useApi } from "./context/ApiContext";
+import Payment from "./pages/Payment";
 import "./App.css";
 
 const theme = createTheme({
@@ -141,6 +142,7 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+        <Route path="/payment/:orderId" element={<Payment />} />
       </Routes>
       <Snackbar
         open={!!error}
