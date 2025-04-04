@@ -1,364 +1,168 @@
-import { useState, useEffect } from "react";
-import {
-  Container,
-  Typography,
-  Paper,
-  Box,
-  TextField,
-  Button,
-  Stepper,
-  Step,
-  StepLabel,
-  Grid,
-  CircularProgress,
-  Alert,
-  Snackbar,
-} from "@mui/material";
-import { useNavigate, useLocation } from "react-router-dom";
-import { loadStripe } from "@stripe/stripe-js";
-import axios from "axios";
+import React, { useState, useEffect } from "react";
+import { useApi } from "../context/ApiContext";
+import { useNavigate } from "react-router-dom";
+import "../styles/Checkout.css";
 
-const stripePromise = loadStripe("your_publishable_key"); // Replace with your Stripe publishable key
-
-// Create axios instance with default config
-const api = axios.create({
-  baseURL: "http://localhost:5003/api",
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-// Add request interceptor to add auth token
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-function Checkout() {
-  const [activeStep, setActiveStep] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
-  const [cart, setCart] = useState({ items: [], total: 0 });
+const Checkout = () => {
+  const [cart, setCart] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const { handleApiCall } = useApi();
   const navigate = useNavigate();
-  const location = useLocation();
-  const userId = localStorage.getItem("userId");
-
-  const [address, setAddress] = useState({
-    street: "",
-    city: "",
-    state: "",
-    zipCode: "",
-  });
-
-  const [paymentDetails, setPaymentDetails] = useState({
-    cardNumber: "",
-    expiryDate: "",
-    cvv: "",
-  });
 
   useEffect(() => {
+    const fetchCart = async () => {
+      const userId = localStorage.getItem("userId");
+      if (!userId) {
+        setError("Please log in to proceed with checkout");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await handleApiCall(
+          fetch(`http://localhost:5002/api/cart/${userId}`)
+        );
+        setCart(response.data);
+      } catch (err) {
+        setError("Failed to fetch cart. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchCart();
-    if (location.state?.deliveryAddress) {
-      setAddress((prev) => ({
-        ...prev,
-        street: location.state.deliveryAddress,
-      }));
-    }
-  }, [location.state]);
+  }, [handleApiCall]);
 
-  const fetchCart = async () => {
-    try {
-      const response = await api.get(`/cart/${userId}`);
-      setCart(response.data);
-    } catch (error) {
-      console.error("Error fetching cart:", error);
-    }
-  };
-
-  const handleAddressSubmit = () => {
-    if (
-      !address.street ||
-      !address.city ||
-      !address.state ||
-      !address.zipCode
-    ) {
-      setSnackbar({
-        open: true,
-        message: "Please fill in all address fields",
-        severity: "error",
-      });
-      return;
-    }
-    setActiveStep(1);
-  };
-
-  const handlePaymentSubmit = async () => {
-    if (
-      !paymentDetails.cardNumber ||
-      !paymentDetails.expiryDate ||
-      !paymentDetails.cvv
-    ) {
-      setSnackbar({
-        open: true,
-        message: "Please fill in all payment details",
-        severity: "error",
-      });
+  const handleCheckout = async () => {
+    if (!deliveryAddress.trim()) {
+      setError("Please enter a delivery address");
       return;
     }
 
-    setLoading(true);
+    setPaymentProcessing(true);
     try {
+      const userId = localStorage.getItem("userId");
+
       // Create order
-      const orderResponse = await api.post("http://localhost:5001/api/orders", {
-        userId,
-        items: [], // Will be populated from cart
-        deliveryAddress: address,
-        totalAmount: 0, // Will be calculated from cart
-      });
+      const orderResponse = await handleApiCall(
+        fetch("http://localhost:5001/api/order", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId,
+            restaurantId: cart.restaurantId,
+            deliveryAddress,
+            items: cart.items,
+          }),
+        })
+      );
 
-      // Process payment
-      await api.post("http://localhost:5002/api/payments", {
-        orderId: orderResponse.data._id,
-        amount: 0, // Will be calculated from cart
-        paymentMethod: "card",
-        paymentDetails,
-      });
+      const order = orderResponse.data;
 
-      setActiveStep(2);
-    } catch (error) {
-      console.error("Error processing payment:", error);
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || "Error processing payment",
-        severity: "error",
-      });
-    } finally {
-      setLoading(false);
+      // Create payment intent
+      const paymentResponse = await handleApiCall(
+        fetch("http://localhost:5003/api/payment/create-payment-intent", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            orderId: order._id,
+            amount: cart.items.reduce(
+              (sum, item) => sum + item.price * item.quantity,
+              0
+            ),
+            userId,
+            email: localStorage.getItem("email"),
+          }),
+        })
+      );
+
+      const { clientSecret } = paymentResponse.data;
+
+      // Redirect to payment page
+      window.location.href = `/payment/${order._id}?client_secret=${clientSecret}`;
+    } catch (err) {
+      setError("Failed to process payment. Please try again.");
+      setPaymentProcessing(false);
     }
   };
 
-  const handleCompleteOrder = () => {
-    navigate("/orders");
-  };
+  if (loading) {
+    return <div className="loading">Loading checkout...</div>;
+  }
 
-  const renderStepContent = (step) => {
-    switch (step) {
-      case 0:
-        return (
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Street Address"
-                value={address.street}
-                onChange={(e) =>
-                  setAddress({ ...address, street: e.target.value })
-                }
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="City"
-                value={address.city}
-                onChange={(e) =>
-                  setAddress({ ...address, city: e.target.value })
-                }
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="State"
-                value={address.state}
-                onChange={(e) =>
-                  setAddress({ ...address, state: e.target.value })
-                }
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="ZIP Code"
-                value={address.zipCode}
-                onChange={(e) =>
-                  setAddress({ ...address, zipCode: e.target.value })
-                }
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Button
-                variant="contained"
-                onClick={handleAddressSubmit}
-                sx={{
-                  borderRadius: 2,
-                  background: "linear-gradient(45deg, #1976d2, #2196f3)",
-                  "&:hover": {
-                    background: "linear-gradient(45deg, #1565c0, #1e88e5)",
-                  },
-                }}
-              >
-                Continue to Payment
-              </Button>
-            </Grid>
-          </Grid>
-        );
-      case 1:
-        return (
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Card Number"
-                value={paymentDetails.cardNumber}
-                onChange={(e) =>
-                  setPaymentDetails({
-                    ...paymentDetails,
-                    cardNumber: e.target.value,
-                  })
-                }
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Expiry Date (MM/YY)"
-                value={paymentDetails.expiryDate}
-                onChange={(e) =>
-                  setPaymentDetails({
-                    ...paymentDetails,
-                    expiryDate: e.target.value,
-                  })
-                }
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="CVV"
-                value={paymentDetails.cvv}
-                onChange={(e) =>
-                  setPaymentDetails({
-                    ...paymentDetails,
-                    cvv: e.target.value,
-                  })
-                }
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Button
-                variant="contained"
-                onClick={handlePaymentSubmit}
-                disabled={loading}
-                sx={{
-                  borderRadius: 2,
-                  background: "linear-gradient(45deg, #1976d2, #2196f3)",
-                  "&:hover": {
-                    background: "linear-gradient(45deg, #1565c0, #1e88e5)",
-                  },
-                }}
-              >
-                {loading ? "Processing..." : "Complete Payment"}
-              </Button>
-            </Grid>
-          </Grid>
-        );
-      case 2:
-        return (
-          <Box sx={{ textAlign: "center" }}>
-            <Typography variant="h5" gutterBottom>
-              Order Confirmed!
-            </Typography>
-            <Typography variant="body1" paragraph>
-              Your order has been successfully placed and payment has been
-              processed.
-            </Typography>
-            <Button
-              variant="contained"
-              onClick={handleCompleteOrder}
-              sx={{
-                borderRadius: 2,
-                background: "linear-gradient(45deg, #1976d2, #2196f3)",
-                "&:hover": {
-                  background: "linear-gradient(45deg, #1565c0, #1e88e5)",
-                },
-              }}
-            >
-              View Orders
-            </Button>
-          </Box>
-        );
-      default:
-        return null;
-    }
-  };
+  if (error) {
+    return <div className="error">{error}</div>;
+  }
+
+  if (!cart || cart.items.length === 0) {
+    return (
+      <div className="empty-cart">
+        <h2>Your cart is empty</h2>
+        <p>Add some items to your cart before checking out!</p>
+        <button onClick={() => navigate("/")}>Browse Restaurants</button>
+      </div>
+    );
+  }
+
+  const total = cart.items.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 8 }}>
-      <Typography
-        variant="h4"
-        gutterBottom
-        sx={{
-          fontWeight: "bold",
-          background: "linear-gradient(45deg, #1976d2, #2196f3)",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-        }}
-      >
-        Checkout
-      </Typography>
+    <div className="checkout">
+      <h2>Checkout</h2>
+      <div className="checkout-content">
+        <div className="delivery-info">
+          <h3>Delivery Information</h3>
+          <div className="form-group">
+            <label htmlFor="address">Delivery Address</label>
+            <textarea
+              id="address"
+              value={deliveryAddress}
+              onChange={(e) => setDeliveryAddress(e.target.value)}
+              placeholder="Enter your delivery address"
+              required
+            />
+          </div>
+        </div>
 
-      <Paper
-        elevation={3}
-        sx={{
-          p: 3,
-          mb: 4,
-          borderRadius: 2,
-          background: "linear-gradient(145deg, #ffffff, #f0f0f0)",
-        }}
-      >
-        <Stepper activeStep={activeStep} alternativeLabel>
-          {["Delivery Address", "Payment", "Confirmation"].map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-      </Paper>
-
-      <Paper
-        elevation={3}
-        sx={{
-          p: 3,
-          borderRadius: 2,
-          background: "linear-gradient(145deg, #ffffff, #f0f0f0)",
-        }}
-      >
-        {renderStepContent(activeStep)}
-      </Paper>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: "100%", borderRadius: 2 }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Container>
+        <div className="order-summary">
+          <h3>Order Summary</h3>
+          <div className="order-items">
+            {cart.items.map((item) => (
+              <div key={item.itemId} className="order-item">
+                <span className="item-name">
+                  {item.name} x {item.quantity}
+                </span>
+                <span className="item-price">
+                  ${(item.price * item.quantity).toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="order-total">
+            <span>Total:</span>
+            <span>${total.toFixed(2)}</span>
+          </div>
+          <button
+            className="checkout-button"
+            onClick={handleCheckout}
+            disabled={paymentProcessing}
+          >
+            {paymentProcessing ? "Processing..." : "Proceed to Payment"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
-}
+};
 
 export default Checkout;

@@ -1,3 +1,4 @@
+import React from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -25,6 +26,7 @@ import Register from "./pages/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Orders from "./pages/Orders";
 import { ApiProvider, useApi } from "./context/ApiContext";
+import "./App.css";
 
 const theme = createTheme({
   palette: {
@@ -127,7 +129,7 @@ function AppContent() {
           path="/orders"
           element={
             <ProtectedRoute>
-              <Orders />
+              <OrderHistory />
             </ProtectedRoute>
           }
         />
@@ -164,7 +166,24 @@ function App() {
       <CssBaseline />
       <ApiProvider>
         <Router>
-          <AppContent />
+          <div className="app">
+            <header className="app-header">
+              <h1>MadeME</h1>
+              <nav>
+                <a href="/">Restaurants</a>
+                <a href="/cart">Cart</a>
+                <a href="/orders">Orders</a>
+              </nav>
+            </header>
+
+            <main className="app-content">
+              <AppContent />
+            </main>
+
+            <footer className="app-footer">
+              <p>&copy; 2024 MadeME. All rights reserved.</p>
+            </footer>
+          </div>
         </Router>
       </ApiProvider>
     </ThemeProvider>

@@ -1,47 +1,54 @@
-import { useState, useEffect } from "react";
-import {
-  Container,
-  Typography,
-  Paper,
-  List,
-  ListItem,
-  ListItemText,
-  Chip,
-  Button,
-  Divider,
-  Box,
-} from "@mui/material";
-import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import React, { useState, useEffect } from "react";
+import { useApi } from "../context/ApiContext";
+import "../styles/OrderHistory.css";
 
-const statusColors = {
-  PENDING: "warning",
-  CONFIRMED: "info",
-  PREPARING: "secondary",
-  OUT_FOR_DELIVERY: "primary",
-  DELIVERED: "success",
-};
-
-function OrderHistory() {
+const OrderHistory = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-  const userId = "user123"; // Replace with actual user ID from auth
+  const [error, setError] = useState(null);
+  const { handleApiCall } = useApi();
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    const fetchOrders = async () => {
+      try {
+        const userId = localStorage.getItem("userId");
+        if (!userId) {
+          setError("Please log in to view your orders");
+          setLoading(false);
+          return;
+        }
 
-  const fetchOrders = async () => {
-    try {
-      const response = await axios.get(
-        `http://localhost:5001/api/orders/user/${userId}`
-      );
-      setOrders(response.data);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-    } finally {
-      setLoading(false);
+        const response = await handleApiCall(
+          fetch(`http://localhost:5001/api/order/user/${userId}`)
+        );
+        setOrders(response.data);
+      } catch (err) {
+        setError("Failed to fetch orders");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, [handleApiCall]);
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "pending":
+        return "#ffa500";
+      case "confirmed":
+        return "#4CAF50";
+      case "preparing":
+        return "#2196F3";
+      case "out_for_delivery":
+        return "#9C27B0";
+      case "delivered":
+        return "#4CAF50";
+      case "cancelled":
+        return "#f44336";
+      default:
+        return "#666";
     }
   };
 
@@ -49,77 +56,69 @@ function OrderHistory() {
     return new Date(dateString).toLocaleString();
   };
 
-  if (loading) {
+  if (loading) return <div className="loading">Loading orders...</div>;
+  if (error) return <div className="error">{error}</div>;
+  if (orders.length === 0) {
     return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Typography>Loading...</Typography>
-      </Container>
+      <div className="empty-orders">
+        <h2>No orders found</h2>
+        <p>You haven't placed any orders yet.</p>
+      </div>
     );
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Order History
-      </Typography>
-      <Paper elevation={3}>
-        {orders.length === 0 ? (
-          <Box sx={{ p: 3, textAlign: "center" }}>
-            <Typography>No orders found</Typography>
-          </Box>
-        ) : (
-          <List>
-            {orders.map((order) => (
-              <div key={order._id}>
-                <ListItem>
-                  <ListItemText
-                    primary={
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          mb: 1,
-                        }}
-                      >
-                        <Typography variant="h6">
-                          Order #{order._id.slice(-6)}
-                        </Typography>
-                        <Chip
-                          label={order.status}
-                          color={statusColors[order.status]}
-                          size="small"
-                        />
-                      </Box>
-                    }
-                    secondary={
-                      <>
-                        <Typography variant="body2" color="text.secondary">
-                          {formatDate(order.createdAt)}
-                        </Typography>
-                        <Typography variant="body2">
-                          {order.items.length} items • Total: $
-                          {order.total.toFixed(2)}
-                        </Typography>
-                      </>
-                    }
-                  />
-                  <Button
-                    variant="outlined"
-                    onClick={() => navigate(`/order/${order._id}`)}
-                    sx={{ ml: 2 }}
-                  >
-                    View Details
-                  </Button>
-                </ListItem>
-                <Divider />
+    <div className="order-history">
+      <h1>Order History</h1>
+      <div className="orders-list">
+        {orders.map((order) => (
+          <div key={order._id} className="order-card">
+            <div className="order-header">
+              <div className="order-info">
+                <h3>Order #{order._id.slice(-6)}</h3>
+                <p className="order-date">{formatDate(order.createdAt)}</p>
               </div>
-            ))}
-          </List>
-        )}
-      </Paper>
-    </Container>
+              <div
+                className="order-status"
+                style={{ backgroundColor: getStatusColor(order.status) }}
+              >
+                {order.status.replace(/_/g, " ")}
+              </div>
+            </div>
+
+            <div className="order-items">
+              {order.items.map((item) => (
+                <div key={item._id} className="order-item">
+                  <span className="item-name">{item.name}</span>
+                  <span className="item-quantity">x {item.quantity}</span>
+                  <span className="item-price">
+                    ${(item.price * item.quantity).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="order-footer">
+              <div className="delivery-info">
+                <p className="delivery-address">
+                  <strong>Delivery Address:</strong> {order.deliveryAddress}
+                </p>
+                {order.driverId && (
+                  <p className="driver-info">
+                    <strong>Driver:</strong> {order.driverId}
+                  </p>
+                )}
+              </div>
+              <div className="order-total">
+                <span>Total:</span>
+                <span>${order.total.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
-}
+};
 
 export default OrderHistory;

@@ -1,0 +1,131 @@
+.order-history {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.order-history h1 {
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  color: #333;
+}
+
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.order-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #eee;
+}
+
+.order-info h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #333;
+}
+
+.order-date {
+  margin: 0.5rem 0 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.order-status {
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  color: white;
+  font-weight: bold;
+  text-transform: capitalize;
+}
+
+.order-items {
+  padding: 1.5rem;
+}
+
+.order-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.item-name {
+  flex: 1;
+}
+
+.item-quantity {
+  margin: 0 1rem;
+  color: #666;
+}
+
+.item-price {
+  font-weight: bold;
+}
+
+.order-footer {
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-top: 1px solid #eee;
+}
+
+.delivery-info {
+  margin-bottom: 1rem;
+}
+
+.delivery-address,
+.driver-info {
+  margin: 0.5rem 0;
+  color: #666;
+}
+
+.order-total {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.empty-orders {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.empty-orders h2 {
+  font-size: 1.5rem;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.empty-orders p {
+  color: #666;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.2rem;
+  color: #666;
+}
+
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: #dc3545;
+  font-size: 1.2rem;
+}
