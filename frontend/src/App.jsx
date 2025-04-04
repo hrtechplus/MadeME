@@ -4,8 +4,13 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
-import CssBaseline from "@mui/material/CssBaseline";
+import {
+  ThemeProvider,
+  createTheme,
+  CssBaseline,
+  Snackbar,
+  Alert,
+} from "@mui/material";
 import Box from "@mui/material/Box";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
@@ -19,6 +24,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Orders from "./pages/Orders";
+import { ApiProvider, useApi } from "./context/ApiContext";
 
 const theme = createTheme({
   palette: {
@@ -85,66 +91,82 @@ const theme = createTheme({
   },
 });
 
+function AppContent() {
+  const { error, setError } = useApi();
+
+  const handleCloseError = () => {
+    setError(null);
+  };
+
+  return (
+    <>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/restaurants" element={<RestaurantList />} />
+        <Route path="/restaurant/:id" element={<RestaurantDetail />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route
+          path="/cart"
+          element={
+            <ProtectedRoute>
+              <Cart />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/checkout"
+          element={
+            <ProtectedRoute>
+              <Checkout />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orders"
+          element={
+            <ProtectedRoute>
+              <Orders />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/order/:id"
+          element={
+            <ProtectedRoute>
+              <OrderTracking />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
+        onClose={handleCloseError}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleCloseError}
+          severity="error"
+          sx={{ width: "100%" }}
+        >
+          {error}
+        </Alert>
+      </Snackbar>
+    </>
+  );
+}
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
-        <Box
-          sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
-        >
-          <Navbar />
-          <Box
-            component="main"
-            sx={{
-              flexGrow: 1,
-              pt: 8, // Add padding for fixed navbar
-              minHeight: "100vh",
-              background: "linear-gradient(45deg, #f5f5f5 30%, #e0e0e0 90%)",
-            }}
-          >
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/restaurants" element={<RestaurantList />} />
-              <Route path="/restaurant/:id" element={<RestaurantDetail />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route
-                path="/cart"
-                element={
-                  <ProtectedRoute>
-                    <Cart />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/checkout"
-                element={
-                  <ProtectedRoute>
-                    <Checkout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/orders"
-                element={
-                  <ProtectedRoute>
-                    <Orders />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/order/:id"
-                element={
-                  <ProtectedRoute>
-                    <OrderTracking />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </Box>
-        </Box>
-      </Router>
+      <ApiProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </ApiProvider>
     </ThemeProvider>
   );
 }

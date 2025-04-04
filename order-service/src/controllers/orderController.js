@@ -1,5 +1,5 @@
 const Order = require("../models/Order");
-const axios = require("axios");
+const { axiosWithRetry } = require("../utils/retry");
 const { validationResult } = require("express-validator");
 
 // Create new order
@@ -12,11 +12,11 @@ exports.createOrder = async (req, res) => {
 
     const { userId, restaurantId, deliveryAddress } = req.body;
 
-    // Fetch cart from cart service
-    const cartResponse = await axios.get(
-      `${process.env.CART_SERVICE_URL}/api/cart/${userId}`
-    );
-    const cart = cartResponse.data;
+    // Fetch cart from cart service with retry
+    const cart = await axiosWithRetry({
+      method: "get",
+      url: `${process.env.CART_SERVICE_URL}/api/cart/${userId}`,
+    });
 
     if (!cart.items || cart.items.length === 0) {
       return res.status(400).json({ message: "Cart is empty" });
@@ -34,14 +34,19 @@ exports.createOrder = async (req, res) => {
 
     await order.save();
 
-    // Clear cart after order creation
-    await axios.delete(`${process.env.CART_SERVICE_URL}/api/cart/${userId}`);
+    // Clear cart after order creation with retry
+    await axiosWithRetry({
+      method: "delete",
+      url: `${process.env.CART_SERVICE_URL}/api/cart/${userId}`,
+    });
 
     res.status(201).json(order);
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error creating order", error: error.message });
+    console.error("Order creation error:", error);
+    res.status(500).json({
+      message: "Error creating order",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
@@ -87,12 +92,10 @@ exports.getRestaurantOrders = async (req, res) => {
     const orders = await Order.find({ restaurantId }).sort({ createdAt: -1 });
     res.json(orders);
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        message: "Error fetching restaurant orders",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Error fetching restaurant orders",
+      error: error.message,
+    });
   }
 };
 

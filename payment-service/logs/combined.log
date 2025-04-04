@@ -1,0 +1,4 @@
+{"level":"info","message":"Payment service running on port 5002","service":"payment-service","timestamp":"2025-04-04T19:01:30.861Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-04T19:01:32.496Z"}
+{"level":"info","message":"Payment service running on port 5002","service":"payment-service","timestamp":"2025-04-04T19:02:59.951Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-04T19:03:02.638Z"}

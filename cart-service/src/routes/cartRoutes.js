@@ -4,8 +4,23 @@ const { body } = require("express-validator");
 const cartController = require("../controllers/cartController");
 const authMiddleware = require("../middleware/auth");
 
-// Apply authentication middleware to all routes
-router.use(authMiddleware);
+// Health check endpoint
+router.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    service: "cart-service",
+  });
+});
+
+// Apply authentication middleware to all routes except health check
+router.use((req, res, next) => {
+  if (req.path === "/health") {
+    next();
+  } else {
+    authMiddleware(req, res, next);
+  }
+});
 
 // Get cart
 router.get("/:userId", cartController.getCart);
