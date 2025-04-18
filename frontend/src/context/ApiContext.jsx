@@ -30,9 +30,9 @@ export const ApiProvider = ({ children }) => {
     error,
     handleApiCall,
     serviceUrls: {
-      cart: process.env.REACT_APP_CART_SERVICE_URL,
-      order: process.env.REACT_APP_ORDER_SERVICE_URL,
-      payment: process.env.REACT_APP_PAYMENT_SERVICE_URL,
+      cart: import.meta.env.VITE_CART_SERVICE_URL,
+      order: import.meta.env.VITE_ORDER_SERVICE_URL,
+      payment: import.meta.env.VITE_PAYMENT_SERVICE_URL,
     },
   };
 

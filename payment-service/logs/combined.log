@@ -7,3 +7,5 @@
 {"level":"info","message":"::1 - - [04/Apr/2025:19:07:26 +0000] \"GET / HTTP/1.1\" 404 139 \"-\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0\"","service":"payment-service","timestamp":"2025-04-04T19:07:26.402Z"}
 {"level":"info","message":"::1 - - [04/Apr/2025:19:08:13 +0000] \"GET /health HTTP/1.1\" 200 87 \"-\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0\"","service":"payment-service","timestamp":"2025-04-04T19:08:13.558Z"}
 {"level":"info","message":"::1 - - [04/Apr/2025:19:08:15 +0000] \"GET /favicon.ico HTTP/1.1\" 404 150 \"-\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0\"","service":"payment-service","timestamp":"2025-04-04T19:08:15.254Z"}
+{"level":"info","message":"Payment service running on port 5002","service":"payment-service","timestamp":"2025-04-18T12:56:32.489Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-18T12:56:34.227Z"}
