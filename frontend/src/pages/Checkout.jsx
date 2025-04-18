@@ -1,164 +1,192 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useApi } from "../context/ApiContext";
-import { useNavigate } from "react-router-dom";
 import "../styles/Checkout.css";
 
 const Checkout = () => {
-  const [cart, setCart] = useState(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { serviceUrls, handleApiCall } = useApi();
+  const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [paymentProcessing, setPaymentProcessing] = useState(false);
-  const { handleApiCall, serviceUrls } = useApi();
-  const navigate = useNavigate();
+  const [deliveryAddress, setDeliveryAddress] = useState({
+    street: "",
+    city: "",
+    state: "",
+    zipCode: "",
+  });
 
   useEffect(() => {
-    const fetchCart = async () => {
-      const userId = localStorage.getItem("userId");
-      if (!userId) {
-        setError("Please log in to proceed with checkout");
-        setLoading(false);
-        return;
-      }
+    if (location.state?.cart) {
+      setCart(location.state.cart);
+      setLoading(false);
+    } else {
+      // If no cart in state, try to fetch from API
+      const fetchCart = async () => {
+        try {
+          const response = await handleApiCall(
+            fetch(`${serviceUrls.cart}/cart`)
+          );
+          setCart(response.items || []);
+          setLoading(false);
+        } catch (err) {
+          setError("Failed to load cart. Please try again later.");
+          setLoading(false);
+        }
+      };
 
-      try {
-        const response = await handleApiCall(
-          fetch(`${serviceUrls.cart}/api/cart/${userId}`)
-        );
-        setCart(response.data);
-      } catch (err) {
-        setError("Failed to fetch cart. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
+      fetchCart();
+    }
+  }, [location.state, handleApiCall, serviceUrls.cart]);
 
-    fetchCart();
-  }, [handleApiCall, serviceUrls.cart]);
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setDeliveryAddress((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
 
   const handleCheckout = async () => {
-    if (!deliveryAddress.trim()) {
-      setError("Please enter a delivery address");
+    if (
+      !deliveryAddress.street ||
+      !deliveryAddress.city ||
+      !deliveryAddress.state ||
+      !deliveryAddress.zipCode
+    ) {
+      setError("Please fill in all delivery address fields");
       return;
     }
 
-    setPaymentProcessing(true);
     try {
-      const userId = localStorage.getItem("userId");
-
       // Create order
       const orderResponse = await handleApiCall(
-        fetch(`${serviceUrls.order}/api/order`, {
+        fetch(`${serviceUrls.order}/orders`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            userId,
-            restaurantId: cart.restaurantId,
+            items: cart,
             deliveryAddress,
-            items: cart.items,
-          }),
-        })
-      );
-
-      const order = orderResponse.data;
-
-      // Create payment intent
-      const paymentResponse = await handleApiCall(
-        fetch(`${serviceUrls.payment}/api/payment/create-payment-intent`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            orderId: order._id,
-            amount: cart.items.reduce(
-              (sum, item) => sum + item.price * item.quantity,
+            total: cart.reduce(
+              (total, item) => total + item.price * item.quantity,
               0
             ),
-            userId,
-            email: localStorage.getItem("email"),
           }),
         })
       );
 
-      const { clientSecret } = paymentResponse.data;
+      // Clear cart
+      await handleApiCall(
+        fetch(`${serviceUrls.cart}/cart`, {
+          method: "DELETE",
+        })
+      );
 
-      // Redirect to payment page
-      window.location.href = `/payment/${order._id}?client_secret=${clientSecret}`;
+      // Navigate to payment page
+      navigate("/payment", { state: { orderId: orderResponse._id } });
     } catch (err) {
-      setError("Failed to process payment. Please try again.");
-      setPaymentProcessing(false);
+      setError("Failed to process checkout. Please try again.");
     }
   };
 
+  const getTotalPrice = () => {
+    return cart.reduce((total, item) => total + item.price * item.quantity, 0);
+  };
+
   if (loading) {
-    return <div className="loading">Loading checkout...</div>;
-  }
-
-  if (error) {
-    return <div className="error">{error}</div>;
-  }
-
-  if (!cart || cart.items.length === 0) {
     return (
-      <div className="empty-cart">
-        <h2>Your cart is empty</h2>
-        <p>Add some items to your cart before checking out!</p>
-        <button onClick={() => navigate("/")}>Browse Restaurants</button>
+      <div className="loading-container">
+        <div className="loading">Loading checkout...</div>
       </div>
     );
   }
 
-  const total = cart.items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
+  if (error) {
+    return (
+      <div className="error-container">
+        <div className="error">Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="checkout">
       <h2>Checkout</h2>
       <div className="checkout-content">
-        <div className="delivery-info">
-          <h3>Delivery Information</h3>
-          <div className="form-group">
-            <label htmlFor="address">Delivery Address</label>
-            <textarea
-              id="address"
-              value={deliveryAddress}
-              onChange={(e) => setDeliveryAddress(e.target.value)}
-              placeholder="Enter your delivery address"
-              required
-            />
+        <div className="delivery-address">
+          <h3>Delivery Address</h3>
+          <div className="address-form">
+            <div className="form-group">
+              <label htmlFor="street">Street Address</label>
+              <input
+                type="text"
+                id="street"
+                name="street"
+                value={deliveryAddress.street}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="city">City</label>
+              <input
+                type="text"
+                id="city"
+                name="city"
+                value={deliveryAddress.city}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="state">State</label>
+              <input
+                type="text"
+                id="state"
+                name="state"
+                value={deliveryAddress.state}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="zipCode">ZIP Code</label>
+              <input
+                type="text"
+                id="zipCode"
+                name="zipCode"
+                value={deliveryAddress.zipCode}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
           </div>
         </div>
 
         <div className="order-summary">
           <h3>Order Summary</h3>
           <div className="order-items">
-            {cart.items.map((item) => (
-              <div key={item.itemId} className="order-item">
-                <span className="item-name">
-                  {item.name} x {item.quantity}
-                </span>
-                <span className="item-price">
+            {cart.map((item) => (
+              <div key={item._id} className="order-item">
+                <div className="item-info">
+                  <h4>{item.name}</h4>
+                  <p>Quantity: {item.quantity}</p>
+                </div>
+                <p className="price">
                   ${(item.price * item.quantity).toFixed(2)}
-                </span>
+                </p>
               </div>
             ))}
           </div>
           <div className="order-total">
-            <span>Total:</span>
-            <span>${total.toFixed(2)}</span>
+            <h4>Total: ${getTotalPrice().toFixed(2)}</h4>
+            <button className="checkout-btn" onClick={handleCheckout}>
+              Proceed to Payment
+            </button>
           </div>
-          <button
-            className="checkout-button"
-            onClick={handleCheckout}
-            disabled={paymentProcessing}
-          >
-            {paymentProcessing ? "Processing..." : "Proceed to Payment"}
-          </button>
         </div>
       </div>
     </div>

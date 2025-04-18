@@ -1,26 +1,28 @@
 import React, { useState, useEffect } from "react";
-import { useApi } from "../context/ApiContext";
+import { useNavigate } from "react-router-dom";
+import { mockRestaurants } from "../data/mockRestaurants";
 import "../styles/RestaurantList.css";
 
 const RestaurantList = () => {
   const [restaurants, setRestaurants] = useState([]);
-  const { loading, error, handleApiCall, serviceUrls } = useApi();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
-        const { data } = await handleApiCall(
-          `${serviceUrls.restaurant}/api/restaurants`
-        );
-        setRestaurants(data || []);
+        // For now, use mock data
+        setRestaurants(mockRestaurants);
+        setLoading(false);
       } catch (err) {
-        console.error("Error fetching restaurants:", err);
-        // Error is already handled by the ApiContext
+        setError("Failed to load restaurants. Please try again later.");
+        setLoading(false);
       }
     };
 
     fetchRestaurants();
-  }, [handleApiCall, serviceUrls.restaurant]);
+  }, []);
 
   if (loading) {
     return (
@@ -50,11 +52,12 @@ const RestaurantList = () => {
           {restaurants.map((restaurant) => (
             <div key={restaurant._id} className="restaurant-card">
               <img
-                src={restaurant.imageUrl || "/default-restaurant.jpg"}
+                src={restaurant.imageUrl}
                 alt={restaurant.name}
                 className="restaurant-image"
                 onError={(e) => {
-                  e.target.src = "/default-restaurant.jpg";
+                  e.target.src =
+                    "https://via.placeholder.com/300x200?text=Restaurant";
                 }}
               />
               <div className="restaurant-info">
@@ -67,9 +70,7 @@ const RestaurantList = () => {
                 </div>
                 <button
                   className="view-menu-btn"
-                  onClick={() =>
-                    (window.location.href = `/restaurant/${restaurant._id}`)
-                  }
+                  onClick={() => navigate(`/restaurant/${restaurant._id}`)}
                 >
                   View Menu
                 </button>

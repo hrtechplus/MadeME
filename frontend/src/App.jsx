@@ -16,7 +16,7 @@ import Box from "@mui/material/Box";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import RestaurantList from "./pages/RestaurantList";
-import RestaurantDetail from "./pages/RestaurantDetail";
+import RestaurantMenu from "./pages/RestaurantMenu";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import OrderHistory from "./pages/OrderHistory";
@@ -102,48 +102,26 @@ function AppContent() {
   };
 
   return (
-    <>
+    <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       <Navbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/restaurants" element={<RestaurantList />} />
-        <Route path="/restaurant/:id" element={<RestaurantDetail />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route
-          path="/cart"
-          element={
-            <ProtectedRoute>
-              <Cart />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/checkout"
-          element={
-            <ProtectedRoute>
-              <Checkout />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/orders"
-          element={
-            <ProtectedRoute>
-              <OrderHistory />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/order/:id"
-          element={
-            <ProtectedRoute>
-              <OrderTracking />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="/payment/:orderId" element={<Payment />} />
-      </Routes>
+      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/restaurants" element={<RestaurantList />} />
+          <Route
+            path="/restaurant/:restaurantId"
+            element={<RestaurantMenu />}
+          />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/payment" element={<Payment />} />
+          <Route path="/orders" element={<Orders />} />
+          <Route path="/order/:orderId" element={<OrderTracking />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Box>
       <Snackbar
         open={!!error}
         autoHideDuration={6000}
@@ -157,7 +135,7 @@ function AppContent() {
           {error}
         </Alert>
       </Snackbar>
-    </>
+    </Box>
   );
 }
 
@@ -165,28 +143,11 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <ApiProvider>
-        <Router>
-          <div className="app">
-            <header className="app-header">
-              <h1>MadeME</h1>
-              <nav>
-                <a href="/">Restaurants</a>
-                <a href="/cart">Cart</a>
-                <a href="/orders">Orders</a>
-              </nav>
-            </header>
-
-            <main className="app-content">
-              <AppContent />
-            </main>
-
-            <footer className="app-footer">
-              <p>&copy; 2024 MadeME. All rights reserved.</p>
-            </footer>
-          </div>
-        </Router>
-      </ApiProvider>
+      <Router>
+        <ApiProvider>
+          <AppContent />
+        </ApiProvider>
+      </Router>
     </ThemeProvider>
   );
 }
