@@ -44,7 +44,7 @@ const api = axios.create({
 });
 
 // Spoonacular API configuration
-const SPOONACULAR_API_KEY = "YOUR_SPOONACULAR_API_KEY"; // Replace with your API key
+const SPOONACULAR_API_KEY = "d211f5ecc41046b9b796851be5f101a8"; // Replace with your API key
 const spoonacularApi = axios.create({
   baseURL: "https://api.spoonacular.com",
   params: {

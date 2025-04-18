@@ -4,34 +4,27 @@ import "../styles/OrderHistory.css";
 
 const OrderHistory = () => {
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const { handleApiCall } = useApi();
+  const { loading, error, handleApiCall, serviceUrls } = useApi();
 
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         const userId = localStorage.getItem("userId");
         if (!userId) {
-          setError("Please log in to view your orders");
-          setLoading(false);
-          return;
+          throw new Error("User not authenticated");
         }
 
-        const response = await handleApiCall(
-          fetch(`http://localhost:5001/api/order/user/${userId}`)
+        const { data } = await handleApiCall(
+          `${serviceUrls.order}/orders/user/${userId}`
         );
-        setOrders(response.data);
+        setOrders(data);
       } catch (err) {
-        setError("Failed to fetch orders");
-        console.error(err);
-      } finally {
-        setLoading(false);
+        console.error("Error fetching orders:", err);
       }
     };
 
     fetchOrders();
-  }, [handleApiCall]);
+  }, [handleApiCall, serviceUrls.order]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -56,8 +49,14 @@ const OrderHistory = () => {
     return new Date(dateString).toLocaleString();
   };
 
-  if (loading) return <div className="loading">Loading orders...</div>;
-  if (error) return <div className="error">{error}</div>;
+  if (loading) {
+    return <div className="loading">Loading orders...</div>;
+  }
+
+  if (error) {
+    return <div className="error">Error: {error}</div>;
+  }
+
   if (orders.length === 0) {
     return (
       <div className="empty-orders">

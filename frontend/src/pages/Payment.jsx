@@ -2,14 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useApi } from "../context/ApiContext";
 import { loadStripe } from "@stripe/stripe-js";
-import { Elements } from "@stripe/react-stripe-js";
-import { PaymentElement } from "@stripe/react-stripe-js";
+import { Elements, PaymentElement } from "@stripe/react-stripe-js";
 import "../styles/Payment.css";
 
 const stripePromise = (() => {
   const publicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
-  if (!publicKey) {
-    console.error("Stripe public key is not configured");
+  if (!publicKey || publicKey === "your_stripe_public_key_here") {
+    console.warn("Stripe public key is not configured");
     return null;
   }
   return loadStripe(publicKey);
@@ -22,9 +21,14 @@ const PaymentForm = ({ clientSecret }) => {
 
   useEffect(() => {
     if (stripePromise) {
-      stripePromise.then((stripeInstance) => {
-        setStripe(stripeInstance);
-      });
+      stripePromise
+        .then((stripeInstance) => {
+          setStripe(stripeInstance);
+        })
+        .catch((error) => {
+          console.error("Failed to load Stripe:", error);
+          setError("Failed to initialize payment system");
+        });
     }
   }, []);
 
@@ -60,7 +64,11 @@ const PaymentForm = ({ clientSecret }) => {
 
   if (!stripePromise) {
     return (
-      <div className="error">Payment system is not configured properly.</div>
+      <div className="payment">
+        <div className="error">
+          Payment system is not configured. Please contact support.
+        </div>
+      </div>
     );
   }
 
@@ -83,17 +91,13 @@ const Payment = () => {
   const { orderId } = useParams();
   const [clientSecret, setClientSecret] = useState(null);
   const [error, setError] = useState(null);
-  const { handleApiCall } = useApi();
+  const { handleApiCall, serviceUrls } = useApi();
 
   useEffect(() => {
     const fetchPaymentIntent = async () => {
       try {
         const response = await handleApiCall(
-          fetch(
-            `${
-              import.meta.env.VITE_PAYMENT_SERVICE_URL
-            }/api/payment/create-intent/${orderId}`
-          )
+          fetch(`${serviceUrls.payment}/api/payment/create-intent/${orderId}`)
         );
         setClientSecret(response.data.clientSecret);
       } catch (error) {
@@ -103,20 +107,34 @@ const Payment = () => {
       }
     };
 
-    fetchPaymentIntent();
-  }, [orderId, handleApiCall]);
+    if (orderId) {
+      fetchPaymentIntent();
+    }
+  }, [orderId, handleApiCall, serviceUrls.payment]);
 
   if (error) {
-    return <div className="error">{error}</div>;
+    return (
+      <div className="payment">
+        <div className="error">{error}</div>
+      </div>
+    );
   }
 
   if (!clientSecret) {
-    return <div className="loading">Loading payment form...</div>;
+    return (
+      <div className="payment">
+        <div className="loading">Loading payment form...</div>
+      </div>
+    );
   }
 
   if (!stripePromise) {
     return (
-      <div className="error">Payment system is not configured properly.</div>
+      <div className="payment">
+        <div className="error">
+          Payment system is not configured. Please contact support.
+        </div>
+      </div>
     );
   }
 

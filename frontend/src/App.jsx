@@ -95,10 +95,10 @@ const theme = createTheme({
 });
 
 function AppContent() {
-  const { error, setError } = useApi();
+  const { error, handleApiCall } = useApi();
 
   const handleCloseError = () => {
-    setError(null);
+    handleApiCall(null);
   };
 
   return (
@@ -148,7 +148,6 @@ function AppContent() {
         open={!!error}
         autoHideDuration={6000}
         onClose={handleCloseError}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
         <Alert
           onClose={handleCloseError}

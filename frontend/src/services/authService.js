@@ -1,41 +1,55 @@
-import axios from "axios";
+import { useApi } from "../context/ApiContext";
 
-const API_URL = "http://localhost:5000/api"; // Replace with your auth service URL
+const useAuth = () => {
+  const { handleApiCall, serviceUrls } = useApi();
 
-const authService = {
-  login: async (email, password) => {
+  const login = async (email, password) => {
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, {
-        email,
-        password,
-      });
+      const { data } = await handleApiCall(
+        `${serviceUrls.auth}/api/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, password }),
+        }
+      );
 
-      if (response.data.token) {
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem("userId", response.data.userId);
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("userId", data.userId);
       }
 
-      return response.data;
+      return data;
     } catch (error) {
-      throw error;
+      console.error("Login error:", error);
+      throw new Error(error.message || "Login failed. Please try again.");
     }
-  },
+  };
 
-  logout: () => {
+  const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userId");
-  },
+  };
 
-  getCurrentUser: () => {
+  const getCurrentUser = () => {
     return {
       token: localStorage.getItem("token"),
       userId: localStorage.getItem("userId"),
     };
-  },
+  };
 
-  isAuthenticated: () => {
+  const isAuthenticated = () => {
     return !!localStorage.getItem("token");
-  },
+  };
+
+  return {
+    login,
+    logout,
+    getCurrentUser,
+    isAuthenticated,
+  };
 };
 
-export default authService;
+export default useAuth;

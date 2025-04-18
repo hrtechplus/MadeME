@@ -9,7 +9,7 @@ import {
   Alert,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { sampleUser, loginWithSampleUser } from "../services/sampleUser";
+import useAuth from "../services/authService";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -17,6 +17,7 @@ function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,15 +25,10 @@ function Login() {
     setError("");
 
     try {
-      // Check if credentials match sample user
-      if (email === sampleUser.email && password === sampleUser.password) {
-        await loginWithSampleUser();
-        navigate("/");
-      } else {
-        setError("Invalid email or password");
-      }
+      await login(email, password);
+      navigate("/");
     } catch (error) {
-      setError("Login failed. Please try again.");
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -40,78 +36,45 @@ function Login() {
 
   return (
     <Container maxWidth="sm">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-        }}
-      >
-        <Paper
-          elevation={3}
-          sx={{
-            padding: 4,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            width: "100%",
-          }}
-        >
-          <Typography component="h1" variant="h5">
-            Sign in
+      <Box sx={{ mt: 8 }}>
+        <Paper elevation={3} sx={{ p: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom align="center">
+            Login
           </Typography>
           {error && (
-            <Alert severity="error" sx={{ mt: 2, width: "100%" }}>
+            <Alert severity="error" sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
-          <Box
-            component="form"
-            onSubmit={handleSubmit}
-            sx={{ mt: 1, width: "100%" }}
-          >
+          <form onSubmit={handleSubmit}>
             <TextField
-              margin="normal"
-              required
+              label="Email"
+              type="email"
               fullWidth
-              id="email"
-              label="Email Address"
-              name="email"
-              autoComplete="email"
-              autoFocus
+              margin="normal"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              required
             />
             <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="password"
               label="Password"
               type="password"
-              id="password"
-              autoComplete="current-password"
+              fullWidth
+              margin="normal"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              required
             />
             <Button
               type="submit"
-              fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2 }}
+              fullWidth
+              sx={{ mt: 3 }}
               disabled={loading}
             >
-              {loading ? "Signing in..." : "Sign In"}
+              {loading ? "Logging in..." : "Login"}
             </Button>
-            <Typography variant="body2" color="text.secondary" align="center">
-              Test credentials:
-              <br />
-              Email: {sampleUser.email}
-              <br />
-              Password: {sampleUser.password}
-            </Typography>
-          </Box>
+          </form>
         </Paper>
       </Box>
     </Container>
