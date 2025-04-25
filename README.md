@@ -2,6 +2,29 @@
 
 A microservices-based food delivery system with a modern React frontend.
 
+## Running the Application
+
+You can easily run all microservices using a single command:
+
+### Windows
+
+```bash
+start-services.bat
+```
+
+### Linux/macOS
+
+```bash
+# Make the script executable first
+chmod +x start-services.sh
+./start-services.sh
+```
+
+Both scripts provide two options:
+
+1. **Docker Compose (Recommended)** - Runs all services in containers
+2. **Individual Services** - Runs each service directly with npm
+
 ## System Architecture
 
 The system consists of the following services:
