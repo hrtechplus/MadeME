@@ -488,7 +488,7 @@ function RestaurantMenu() {
                   >
                     {cartItems.map((item) => (
                       <Paper
-                        key={item.id}
+                        key={item.itemId}
                         elevation={0}
                         sx={{
                           p: 2,
@@ -537,7 +537,10 @@ function RestaurantMenu() {
                             <IconButton
                               size="small"
                               onClick={() =>
-                                handleUpdateQuantity(item.id, item.quantity - 1)
+                                handleUpdateQuantity(
+                                  item.itemId,
+                                  item.quantity - 1
+                                )
                               }
                               disabled={item.quantity <= 1}
                               sx={{
@@ -562,7 +565,10 @@ function RestaurantMenu() {
                             <IconButton
                               size="small"
                               onClick={() =>
-                                handleUpdateQuantity(item.id, item.quantity + 1)
+                                handleUpdateQuantity(
+                                  item.itemId,
+                                  item.quantity + 1
+                                )
                               }
                               sx={{
                                 bgcolor: "action.hover",
@@ -576,7 +582,7 @@ function RestaurantMenu() {
                           <IconButton
                             size="small"
                             color="error"
-                            onClick={() => handleRemoveFromCart(item.id)}
+                            onClick={() => handleRemoveFromCart(item.itemId)}
                           >
                             <DeleteOutline fontSize="small" />
                           </IconButton>
