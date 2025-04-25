@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { useApi } from "./ApiContext";
+import axios from "axios";
 
 const CartContext = createContext();
 
@@ -44,43 +45,44 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const addToCart = async (item, restaurantId) => {
+  const addToCart = async (item) => {
     try {
       console.log("Adding item to cart:", item);
 
-      // No need to construct a new item object,
-      // just make sure all required fields are present
-      if (
-        !item.itemId ||
-        !item.name ||
-        typeof item.price !== "number" ||
-        !item.quantity ||
-        !item.restaurantId
-      ) {
+      // Validate required fields
+      if (!item.name || typeof item.price !== "number" || !item.quantity) {
         console.error("Missing required cart item fields:", item);
         return false;
       }
 
-      // Add to database
-      const result = await handleApiCall(
-        fetch(`${serviceUrls.cart}/api/cart/add`, {
-          method: "POST",
+      // Ensure itemId is a string
+      const itemId = item.itemId ? item.itemId.toString() : `item-${Date.now()}`;
+      
+      // Create the data object with all required fields
+      const cartItemData = {
+        userId,
+        itemId: itemId,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        restaurantId: item.restaurantId || restaurantId || "default-restaurant",
+      };
+
+      console.log("Sending cart data:", cartItemData);
+
+      // Use direct axios call with proper headers
+      const response = await axios.post(
+        `${serviceUrls.cart}/api/cart/add`,
+        cartItemData,
+        {
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            userId,
-            itemId: item.itemId,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            restaurantId: item.restaurantId,
-          }),
-        })
+        }
       );
 
-      console.log("Add to cart response:", result);
+      console.log("Add to cart response:", response.data);
 
       // Refresh cart from database to ensure we have the latest data
       await loadCartFromDB();
