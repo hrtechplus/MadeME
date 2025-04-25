@@ -48,13 +48,13 @@ const Checkout = () => {
 
     try {
       setLoading(true);
-      
+
       // Create order
       const orderData = {
         userId: userId,
         restaurantId: cart[0]?.restaurantId || "default-restaurant",
         items: cart.map((item) => ({
-          itemId: item._id || item.itemId,
+          itemId: item.itemId,
           name: item.name,
           price: item.price,
           quantity: item.quantity,
@@ -67,10 +67,11 @@ const Checkout = () => {
       console.log("Creating order with data:", orderData);
 
       // Create order with proper error handling
-      const orderResponse = await fetch("http://localhost:5001/api/order", {
+      const orderResponse = await fetch(`${serviceUrls.order}/api/order`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify(orderData),
       });
@@ -86,9 +87,9 @@ const Checkout = () => {
       const orderResult = await orderResponse.json();
       console.log("Order created successfully:", orderResult);
 
-      // Clear cart using our context method (handles both localStorage and server)
+      // Clear cart using our context method (handles database clearing)
       await clearCart();
-      
+
       showToast("Order created successfully", "success");
 
       // Navigate to payment page with order details
@@ -110,7 +111,7 @@ const Checkout = () => {
   if (loading) {
     return (
       <div className="loading-container">
-        <div className="loading">Loading checkout...</div>
+        <div className="loading">Processing checkout...</div>
       </div>
     );
   }
@@ -184,7 +185,7 @@ const Checkout = () => {
           <h3>Order Summary</h3>
           <div className="order-items">
             {cart.map((item) => (
-              <div key={item._id || item.itemId} className="order-item">
+              <div key={item.itemId} className="order-item">
                 <div className="item-info">
                   <h4>{item.name}</h4>
                   <p>Quantity: {item.quantity}</p>
@@ -197,8 +198,12 @@ const Checkout = () => {
           </div>
           <div className="order-total">
             <h4>Total: ${getTotalPrice().toFixed(2)}</h4>
-            <button className="checkout-btn" onClick={handleCheckout}>
-              Proceed to Payment
+            <button
+              className="checkout-btn"
+              onClick={handleCheckout}
+              disabled={loading}
+            >
+              {loading ? "Processing..." : "Proceed to Payment"}
             </button>
           </div>
         </div>

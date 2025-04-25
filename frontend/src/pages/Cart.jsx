@@ -5,17 +5,17 @@ import "../styles/Cart.css";
 
 const Cart = () => {
   const navigate = useNavigate();
-  const { 
-    cart, 
-    loading, 
-    updateQuantity, 
-    removeFromCart, 
-    clearCart, 
-    getTotalPrice 
+  const {
+    cart,
+    loading,
+    updateQuantity,
+    removeFromCart,
+    clearCart,
+    getTotalPrice,
   } = useCart();
 
   const handleCheckout = () => {
-    navigate("/checkout", { state: { cart } });
+    navigate("/checkout");
   };
 
   if (loading) {
@@ -43,26 +43,30 @@ const Cart = () => {
         <>
           <div className="cart-items">
             {cart.map((item) => (
-              <div key={item._id || item.itemId} className="cart-item">
+              <div key={item.itemId} className="cart-item">
                 <div className="cart-item-info">
                   <h4>{item.name}</h4>
                   <p className="price">${item.price.toFixed(2)}</p>
                 </div>
                 <div className="cart-item-controls">
                   <button
-                    onClick={() => updateQuantity(item._id || item.itemId, item.quantity - 1)}
+                    onClick={() =>
+                      updateQuantity(item.itemId, item.quantity - 1)
+                    }
                   >
                     -
                   </button>
                   <span>{item.quantity}</span>
                   <button
-                    onClick={() => updateQuantity(item._id || item.itemId, item.quantity + 1)}
+                    onClick={() =>
+                      updateQuantity(item.itemId, item.quantity + 1)
+                    }
                   >
                     +
                   </button>
                   <button
                     className="remove-btn"
-                    onClick={() => removeFromCart(item._id || item.itemId)}
+                    onClick={() => removeFromCart(item.itemId)}
                   >
                     Remove
                   </button>

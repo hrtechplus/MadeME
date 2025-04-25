@@ -10,7 +10,8 @@ const RestaurantMenu = () => {
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { cart, addToCart, updateQuantity, removeFromCart, getTotalPrice } = useCart();
+  const { cart, addToCart, updateQuantity, removeFromCart, getTotalPrice } =
+    useCart();
 
   useEffect(() => {
     const fetchRestaurant = async () => {
@@ -33,7 +34,9 @@ const RestaurantMenu = () => {
     fetchRestaurant();
   }, [restaurantId]);
 
+  // Handle adding item to cart
   const handleAddToCart = (item) => {
+    // Pass the item and restaurant ID to the addToCart function
     addToCart(item, restaurantId);
   };
 
@@ -99,7 +102,7 @@ const RestaurantMenu = () => {
             <>
               <div className="cart-items">
                 {cart.map((item) => (
-                  <div key={item._id || item.itemId} className="cart-item">
+                  <div key={item.itemId} className="cart-item">
                     <div className="cart-item-info">
                       <h4>{item.name}</h4>
                       <p>${item.price.toFixed(2)}</p>
@@ -107,7 +110,7 @@ const RestaurantMenu = () => {
                     <div className="cart-item-controls">
                       <button
                         onClick={() =>
-                          updateQuantity(item._id || item.itemId, item.quantity - 1)
+                          updateQuantity(item.itemId, item.quantity - 1)
                         }
                       >
                         -
@@ -115,14 +118,14 @@ const RestaurantMenu = () => {
                       <span>{item.quantity}</span>
                       <button
                         onClick={() =>
-                          updateQuantity(item._id || item.itemId, item.quantity + 1)
+                          updateQuantity(item.itemId, item.quantity + 1)
                         }
                       >
                         +
                       </button>
                       <button
                         className="remove-btn"
-                        onClick={() => removeFromCart(item._id || item.itemId)}
+                        onClick={() => removeFromCart(item.itemId)}
                       >
                         Remove
                       </button>

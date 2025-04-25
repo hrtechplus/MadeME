@@ -104,7 +104,7 @@ function AppContent() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
-    
+
     // If user is not logged in, log them in with the sample user
     if (!token || !userId) {
       console.log("Auto-logging in with sample user");
