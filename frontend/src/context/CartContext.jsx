@@ -55,17 +55,20 @@ export const CartProvider = ({ children }) => {
         return false;
       }
 
-      // Ensure itemId is a string
-      const itemId = item.itemId ? item.itemId.toString() : `item-${Date.now()}`;
-      
+      // Make itemId unique per user by creating a user-scoped identifier
+      // This ensures items are unique per user even when product IDs are the same
+      const userScopedItemId = item.itemId 
+        ? `${userId}-${item.itemId.toString()}`
+        : `${userId}-item-${Date.now()}`;
+
       // Create the data object with all required fields
       const cartItemData = {
         userId,
-        itemId: itemId,
+        itemId: userScopedItemId,  // Use the user-scoped itemId
         name: item.name,
         price: item.price,
         quantity: item.quantity,
-        restaurantId: item.restaurantId || restaurantId || "default-restaurant",
+        restaurantId: item.restaurantId || "default-restaurant",
       };
 
       console.log("Sending cart data:", cartItemData);
@@ -103,9 +106,14 @@ export const CartProvider = ({ children }) => {
 
       console.log(`Updating quantity of item ${itemId} to ${newQuantity}`);
 
+      // Check if itemId already includes the user scope prefix
+      const formattedItemId = itemId.startsWith(`${userId}-`) 
+        ? itemId 
+        : `${userId}-${itemId}`;
+
       // Update in database
       const result = await handleApiCall(
-        fetch(`${serviceUrls.cart}/api/cart/${userId}/${itemId}`, {
+        fetch(`${serviceUrls.cart}/api/cart/${userId}/${formattedItemId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",

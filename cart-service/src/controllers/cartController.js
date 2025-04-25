@@ -73,7 +73,13 @@ exports.addToCart = async (req, res) => {
         cart.items[existingItemIndex].quantity += quantity;
       } else {
         // Add new item if it doesn't exist
-        cart.items.push({ itemId, name, price, quantity, restaurantId });
+        cart.items.push({ 
+          itemId, 
+          name, 
+          price, 
+          quantity, 
+          restaurantId 
+        });
       }
     }
 
