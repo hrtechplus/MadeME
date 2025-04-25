@@ -24,7 +24,7 @@ export const loginWithSampleUser = async (email, password) => {
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
   let user;
-  
+
   // Check if login is for admin or regular user
   if (email === adminUser.email && password === adminUser.password) {
     user = adminUser;
@@ -42,6 +42,22 @@ export const loginWithSampleUser = async (email, password) => {
   return {
     token: user.token,
     userId: user.userId,
-    role: user.role
+    role: user.role,
   };
+};
+
+// Function to make the current user an admin for testing
+export const makeUserAdmin = () => {
+  localStorage.setItem("userRole", "admin");
+  console.log(
+    "User role set to admin. You can now access the admin dashboard."
+  );
+  return true;
+};
+
+// Function to remove admin privileges for testing
+export const removeAdminRole = () => {
+  localStorage.setItem("userRole", "user");
+  console.log("Admin privileges removed.");
+  return true;
 };

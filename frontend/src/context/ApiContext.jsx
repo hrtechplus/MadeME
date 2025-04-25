@@ -12,6 +12,7 @@ export function ApiProvider({ children }) {
       import.meta.env.VITE_PAYMENT_SERVICE_URL || "http://localhost:5003",
     restaurant:
       import.meta.env.VITE_RESTAURANT_SERVICE_URL || "http://localhost:5004",
+    user: import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:5004",
   });
 
   // Generic API call handler with error handling

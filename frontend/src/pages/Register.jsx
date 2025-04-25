@@ -11,20 +11,18 @@ import {
   Snackbar,
   InputAdornment,
   IconButton,
+  CircularProgress,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-
-const api = axios.create({
-  baseURL: "http://localhost:5003/api",
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
+import { useApi } from "../context/ApiContext";
+import useAuth from "../services/authService";
 
 const Register = () => {
   const navigate = useNavigate();
+  const { serviceUrls } = useApi();
+  const { register } = useAuth();
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -66,11 +64,36 @@ const Register = () => {
 
     try {
       setLoading(true);
-      await api.post("/auth/register", {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
+      console.log("Starting registration...");
+      console.log("Using API URL:", serviceUrls.user);
+
+      // Direct API call for troubleshooting
+      const response = await fetch(`${serviceUrls.user}/api/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        }),
       });
+
+      if (!response.ok) {
+        let errorMessage;
+        try {
+          const errorData = await response.json();
+          errorMessage =
+            errorData.message || `Error status: ${response.status}`;
+        } catch (e) {
+          errorMessage = `Registration failed with status: ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log("Registration successful:", data);
 
       setSnackbar({
         open: true,
@@ -78,16 +101,16 @@ const Register = () => {
         severity: "success",
       });
 
+      // Store successful registration in sessionStorage to show success message on login page
+      sessionStorage.setItem("registrationSuccess", "true");
+
       // Redirect to login after successful registration
       setTimeout(() => {
         navigate("/login");
       }, 2000);
     } catch (error) {
       console.error("Registration error:", error);
-      setError(
-        error.response?.data?.message ||
-          "Registration failed. Please try again."
-      );
+      setError(error.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -216,7 +239,14 @@ const Register = () => {
                 },
               }}
             >
-              {loading ? "Creating Account..." : "Create Account"}
+              {loading ? (
+                <Box sx={{ display: "flex", alignItems: "center" }}>
+                  <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} />
+                  Creating Account...
+                </Box>
+              ) : (
+                "Create Account"
+              )}
             </Button>
 
             <Typography align="center">

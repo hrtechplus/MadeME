@@ -41,13 +41,13 @@ const verifyAdmin = (req, res, next) => {
     process.env.BYPASS_AUTH === "true"
   ) {
     // Check if we have a special header for admin in dev mode
-    if (req.headers['x-admin-auth'] === 'true') {
+    if (req.headers["x-admin-auth"] === "true") {
       return next();
     }
   }
 
   // In production, check the user role from JWT
-  if (!req.userData || req.userData.role !== 'admin') {
+  if (!req.userData || req.userData.role !== "admin") {
     return res
       .status(403)
       .json({ message: "Access denied: Admin privileges required" });

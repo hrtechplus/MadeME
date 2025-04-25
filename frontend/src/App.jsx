@@ -24,6 +24,8 @@ import OrderTracking from "./pages/OrderTracking";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
+import AdminDashboard from "./pages/AdminDashboard";
 import Orders from "./pages/Orders";
 import { ApiProvider, useApi } from "./context/ApiContext";
 import Payment from "./pages/Payment";
@@ -100,18 +102,12 @@ const theme = createTheme({
 function AppContent() {
   const { error, handleApiCall } = useApi();
 
-  // Auto-login the sample user when the app starts
+  // Auto-login is now disabled, so users must explicitly log in
   useEffect(() => {
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
 
-    // If user is not logged in, log them in with the sample user
-    if (!token || !userId) {
-      console.log("Auto-logging in with sample user");
-      loginWithSampleUser().then(() => {
-        console.log("Sample user logged in successfully");
-      });
-    } else {
+    if (token && userId) {
       console.log("User already logged in", { userId });
     }
   }, []);
@@ -171,9 +167,17 @@ function AppContent() {
               </ProtectedRoute>
             }
           />
-          {/* Redirect login and register to home page */}
-          <Route path="/login" element={<Navigate to="/" replace />} />
-          <Route path="/register" element={<Navigate to="/" replace />} />
+          <Route
+            path="/admin/dashboard"
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            }
+          />
+          {/* Login and register routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Box>

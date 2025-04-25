@@ -19,10 +19,12 @@ services:
       - VITE_ORDER_SERVICE_URL=http://localhost:5001
       - VITE_PAYMENT_SERVICE_URL=http://localhost:5003
       - VITE_RESTAURANT_SERVICE_URL=http://localhost:5004
+      - VITE_USER_SERVICE_URL=http://localhost:5004
     depends_on:
       - cart-service
       - order-service
       - payment-service
+      - user-service
     networks:
       - mademe_network
 
@@ -64,6 +66,21 @@ services:
     depends_on:
       - mongodb
       - order-service
+    networks:
+      - mademe_network
+
+  user-service:
+    build: ./user-service
+    ports:
+      - "5004:5004"
+    environment:
+      - PORT=5004
+      - MONGODB_URI=mongodb://mongodb:27017/mademe-users
+      - JWT_SECRET=your_jwt_secret_replace_in_production
+      - JWT_EXPIRATION=24h
+      - FRONTEND_URL=http://frontend:5173
+    depends_on:
+      - mongodb
     networks:
       - mademe_network
 

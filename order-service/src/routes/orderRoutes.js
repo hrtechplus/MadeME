@@ -7,7 +7,12 @@ const orderController = require("../controllers/orderController");
 const { verifyToken, verifyAdmin } = require("../middleware/auth");
 
 // Get all orders (admin only)
-router.get("/admin/all", verifyToken, verifyAdmin, orderController.getAllOrders);
+router.get(
+  "/admin/all",
+  verifyToken,
+  verifyAdmin,
+  orderController.getAllOrders
+);
 
 // Create new order
 router.post(

@@ -1,17 +1,15 @@
 import { Navigate } from "react-router-dom";
-import { sampleUser } from "../services/sampleUser";
+import useAuth from "../services/authService";
 
 const ProtectedRoute = ({ children }) => {
-  // Auto-login with sample user if no token exists
-  const token = localStorage.getItem("token");
-  if (!token) {
-    // Set sample user credentials for auto-login
-    localStorage.setItem("token", sampleUser.token);
-    localStorage.setItem("userId", sampleUser.userId);
-    console.log("Auto-login activated: Login requirement bypassed");
+  const { isAuthenticated } = useAuth();
+
+  // If user is not authenticated, redirect to login page
+  if (!isAuthenticated()) {
+    return <Navigate to="/login" replace />;
   }
 
-  // Always return children (component is always accessible)
+  // If user is authenticated, show the protected content
   return children;
 };
 

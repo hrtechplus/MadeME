@@ -159,25 +159,25 @@ exports.assignDriver = async (req, res) => {
 exports.getAllOrders = async (req, res) => {
   try {
     const { status, startDate, endDate } = req.query;
-    
+
     // Build query based on filters
     let query = {};
-    
+
     if (status) {
       query.status = status;
     }
-    
+
     if (startDate && endDate) {
       query.createdAt = {
         $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $lte: new Date(endDate),
       };
     }
-    
+
     const orders = await Order.find(query)
       .sort({ createdAt: -1 })
-      .populate('userId', 'name email'); // Assuming there's a user model with these fields
-    
+      .populate("userId", "name email"); // Assuming there's a user model with these fields
+
     res.json(orders);
   } catch (error) {
     res
