@@ -153,7 +153,7 @@ function Cart() {
           <Box className="cart-items">
             {cartItems.map((item) => (
               <Paper
-                key={item.id}
+                key={item.itemId}
                 elevation={0}
                 sx={{
                   p: 3,
@@ -191,7 +191,7 @@ function Cart() {
                     <IconButton
                       size="small"
                       onClick={() =>
-                        handleUpdateQuantity(item.id, item.quantity - 1)
+                        handleUpdateQuantity(item.itemId, item.quantity - 1)
                       }
                       disabled={item.quantity <= 1}
                     >
@@ -205,7 +205,7 @@ function Cart() {
                     <IconButton
                       size="small"
                       onClick={() =>
-                        handleUpdateQuantity(item.id, item.quantity + 1)
+                        handleUpdateQuantity(item.itemId, item.quantity + 1)
                       }
                     >
                       <Add fontSize="small" />
@@ -229,7 +229,7 @@ function Cart() {
                     <IconButton
                       size="small"
                       color="error"
-                      onClick={() => handleRemoveItem(item.id)}
+                      onClick={() => handleRemoveItem(item.itemId)}
                       sx={{ mt: 0.5 }}
                     >
                       <Delete fontSize="small" />

@@ -12,12 +12,12 @@ const orderClient = axios.create({
 });
 
 const paymentClient = axios.create({
-  baseURL: "http://localhost:5002/api",
+  baseURL: "http://localhost:5003/api",
   timeout: 5000,
 });
 
 const restaurantClient = axios.create({
-  baseURL: "http://localhost:5005/api",
+  baseURL: "http://localhost:5004/api",
   timeout: 5000,
 });
 
