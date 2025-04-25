@@ -184,29 +184,80 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("orders");
-  const [orders, setOrders] = useState([]);
+
+  // Payment filter states
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState({
+    startDate: "",
+    endDate: "",
+  });
+
+  // Payment CRUD states
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showNewPaymentModal, setShowNewPaymentModal] = useState(false);
+  const [paymentEditMode, setPaymentEditMode] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState({
+    show: false,
+    paymentId: null,
+  });
+  const [paymentForm, setPaymentForm] = useState({
+    orderId: "",
+    amount: "",
+    paymentMethod: "CARD",
+    status: "PENDING",
+    userId: "",
+    transactionId: "",
+    stripePaymentIntentId: "",
+    stripeCustomerId: "",
+    paypalOrderId: "",
+    paypalPaymentId: "",
+  });
+
+  // Payment Pagination states
+  const [paymentCurrentPage, setPaymentCurrentPage] = useState(1);
+  const [paymentsPerPage] = useState(10);
+  const indexOfLastPayment = paymentCurrentPage * paymentsPerPage;
+  const indexOfFirstPayment = indexOfLastPayment - paymentsPerPage;
   const [payments, setPayments] = useState([]);
+  const currentPayments = payments.slice(
+    indexOfFirstPayment,
+    indexOfLastPayment
+  );
+  const totalPaymentPages = Math.ceil(payments.length / paymentsPerPage);
+
+  const [orders, setOrders] = useState([]);
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
   const [restaurantFilters, setRestaurantFilters] = useState({
     name: "",
     cuisine: "all",
     status: "all",
   });
-  const [dateFilter, setDateFilter] = useState({
-    startDate: "",
-    endDate: "",
-  });
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // Orders pagination states
+  const [orderCurrentPage, setOrderCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const indexOfLastOrder = orderCurrentPage * itemsPerPage;
+  const indexOfFirstOrder = indexOfLastOrder - itemsPerPage;
+  const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
+  const totalOrderPages = Math.ceil(orders.length / itemsPerPage);
+
+  // Restaurants pagination states
+  const [restaurantCurrentPage, setRestaurantCurrentPage] = useState(1);
+  const indexOfLastRestaurant = restaurantCurrentPage * itemsPerPage;
+  const indexOfFirstRestaurant = indexOfLastRestaurant - itemsPerPage;
+  const currentRestaurants = restaurants.slice(
+    indexOfFirstRestaurant,
+    indexOfLastRestaurant
+  );
+  const totalRestaurantPages = Math.ceil(restaurants.length / itemsPerPage);
+
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [selectedPayment, setSelectedPayment] = useState(null);
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showRestaurantModal, setShowRestaurantModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [restaurantForm, setRestaurantForm] = useState({});
@@ -515,30 +566,6 @@ const AdminDashboard = () => {
     setEditMode(false);
   };
 
-  // Pagination logic for orders
-  const indexOfLastOrder = currentPage * itemsPerPage;
-  const indexOfFirstOrder = indexOfLastOrder - itemsPerPage;
-  const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
-  const totalOrderPages = Math.ceil(orders.length / itemsPerPage);
-
-  // Pagination logic for payments
-  const indexOfLastPayment = currentPage * itemsPerPage;
-  const indexOfFirstPayment = indexOfLastPayment - itemsPerPage;
-  const currentPayments = payments.slice(
-    indexOfFirstPayment,
-    indexOfLastPayment
-  );
-  const totalPaymentPages = Math.ceil(payments.length / itemsPerPage);
-
-  // Pagination logic for restaurants
-  const indexOfLastRestaurant = currentPage * itemsPerPage;
-  const indexOfFirstRestaurant = indexOfLastRestaurant - itemsPerPage;
-  const currentRestaurants = restaurants.slice(
-    indexOfFirstRestaurant,
-    indexOfLastRestaurant
-  );
-  const totalRestaurantPages = Math.ceil(restaurants.length / itemsPerPage);
-
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const formatDate = (dateString) => {
@@ -571,6 +598,179 @@ const AdminDashboard = () => {
       });
     } else {
       setRestaurantForm({ ...restaurantForm, [name]: value });
+    }
+  };
+
+  // Payment CRUD operations
+  const handlePaymentFormChange = (e) => {
+    const { name, value } = e.target;
+    setPaymentForm({ ...paymentForm, [name]: value });
+  };
+
+  const handleSubmitPaymentForm = async (e) => {
+    e.preventDefault();
+
+    try {
+      if (paymentEditMode) {
+        await updatePayment();
+      } else {
+        await createPayment();
+      }
+    } catch (error) {
+      console.error("Error submitting payment form:", error);
+      showToast("Error submitting payment form", "error");
+    }
+  };
+
+  const createPayment = async () => {
+    try {
+      setLoading(true);
+
+      const response = await handleApiCall(
+        fetch(`${serviceUrls.payment}/api/payment/admin`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+          body: JSON.stringify(paymentForm),
+        })
+      );
+
+      showToast("Payment created successfully", "success");
+
+      // Add new payment to state
+      setPayments([response.data, ...payments]);
+
+      // Close modal and reset form
+      setShowNewPaymentModal(false);
+      setPaymentForm({
+        orderId: "",
+        amount: "",
+        paymentMethod: "CARD",
+        status: "PENDING",
+        userId: "",
+        transactionId: "",
+        stripePaymentIntentId: "",
+        stripeCustomerId: "",
+        paypalOrderId: "",
+        paypalPaymentId: "",
+      });
+
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      console.error("Error creating payment:", error);
+      showToast("Failed to create payment", "error");
+    }
+  };
+
+  const updatePayment = async () => {
+    try {
+      setLoading(true);
+
+      await handleApiCall(
+        fetch(
+          `${serviceUrls.payment}/api/payment/admin/${selectedPayment._id}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              "x-admin-auth": "true",
+            },
+            body: JSON.stringify(paymentForm),
+          }
+        )
+      );
+
+      showToast("Payment updated successfully", "success");
+
+      // Update payment in state
+      setPayments(
+        payments.map((payment) =>
+          payment._id === selectedPayment._id
+            ? { ...payment, ...paymentForm }
+            : payment
+        )
+      );
+
+      // Close modal and reset edit mode
+      setShowPaymentModal(false);
+      setPaymentEditMode(false);
+      setSelectedPayment(null);
+
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      console.error("Error updating payment:", error);
+      showToast("Failed to update payment", "error");
+    }
+  };
+
+  const handleDeletePayment = async (paymentId) => {
+    try {
+      setLoading(true);
+
+      await handleApiCall(
+        fetch(`${serviceUrls.payment}/api/payment/admin/${paymentId}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+        })
+      );
+
+      showToast("Payment deleted successfully", "success");
+
+      // Remove deleted payment from state
+      setPayments(payments.filter((payment) => payment._id !== paymentId));
+
+      // Close confirmation modal
+      setDeleteConfirmation({ show: false, paymentId: null });
+
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      console.error("Error deleting payment:", error);
+      showToast("Failed to delete payment", "error");
+    }
+  };
+
+  const updatePaymentStatus = async (paymentId, newStatus) => {
+    try {
+      await handleApiCall(
+        fetch(`${serviceUrls.payment}/api/payment/admin/${paymentId}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+          body: JSON.stringify({ status: newStatus }),
+        })
+      );
+
+      showToast(`Payment status updated to ${newStatus}`, "success");
+
+      // Update payment status in state
+      setPayments(
+        payments.map((payment) =>
+          payment._id === paymentId
+            ? { ...payment, status: newStatus }
+            : payment
+        )
+      );
+
+      // If the payment is being viewed in modal, update there too
+      if (selectedPayment && selectedPayment._id === paymentId) {
+        setSelectedPayment({ ...selectedPayment, status: newStatus });
+      }
+    } catch (error) {
+      console.error("Error updating payment status:", error);
+      showToast("Failed to update payment status", "error");
     }
   };
 
@@ -731,9 +931,9 @@ const AdminDashboard = () => {
 
           {orders.length > 0 && (
             <PaginationControls
-              currentPage={currentPage}
+              currentPage={orderCurrentPage}
               totalPages={totalOrderPages}
-              paginate={paginate}
+              paginate={setOrderCurrentPage}
             />
           )}
 
@@ -810,6 +1010,27 @@ const AdminDashboard = () => {
         >
           <RefreshIcon /> Refresh
         </button>
+
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            setShowNewPaymentModal(true);
+            setPaymentForm({
+              orderId: "",
+              amount: "",
+              paymentMethod: "CARD",
+              status: "PENDING",
+              userId: "",
+              transactionId: "",
+              stripePaymentIntentId: "",
+              stripeCustomerId: "",
+              paypalOrderId: "",
+              paypalPaymentId: "",
+            });
+          }}
+        >
+          + Add Payment
+        </button>
       </div>
 
       {loading ? (
@@ -850,6 +1071,30 @@ const AdminDashboard = () => {
                           >
                             <ViewIcon /> View
                           </button>
+                          <button
+                            onClick={() => {
+                              setSelectedPayment(payment);
+                              setPaymentForm(payment);
+                              setPaymentEditMode(true);
+                              setShowPaymentModal(true);
+                            }}
+                            className="btn btn-primary"
+                            aria-label="Edit payment"
+                          >
+                            <EditIcon /> Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              setDeleteConfirmation({
+                                show: true,
+                                paymentId: payment._id,
+                              });
+                            }}
+                            className="btn btn-danger"
+                            aria-label="Delete payment"
+                          >
+                            Delete
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -867,9 +1112,9 @@ const AdminDashboard = () => {
 
           {payments.length > 0 && (
             <PaginationControls
-              currentPage={currentPage}
+              currentPage={paymentCurrentPage}
               totalPages={totalPaymentPages}
-              paginate={paginate}
+              paginate={setPaymentCurrentPage}
             />
           )}
 
@@ -880,6 +1125,37 @@ const AdminDashboard = () => {
           />
         </>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteConfirmation.show}
+        onClose={() => setDeleteConfirmation({ show: false, paymentId: null })}
+        title="Confirm Deletion"
+      >
+        <div className="confirmation-modal">
+          <p>Are you sure you want to delete this payment record?</p>
+          <p className="warning">This action cannot be undone.</p>
+          <div className="form-actions">
+            <button
+              className="btn btn-secondary"
+              onClick={() =>
+                setDeleteConfirmation({ show: false, paymentId: null })
+              }
+            >
+              Cancel
+            </button>
+            <button
+              className="btn btn-danger"
+              onClick={() => handleDeletePayment(deleteConfirmation.paymentId)}
+            >
+              Delete Payment
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Create/Edit Payment Modal */}
+      {renderPaymentDetailsModal()}
     </>
   );
 
@@ -1042,9 +1318,9 @@ const AdminDashboard = () => {
 
           {restaurants.length > 0 && (
             <PaginationControls
-              currentPage={currentPage}
+              currentPage={restaurantCurrentPage}
               totalPages={totalRestaurantPages}
-              paginate={paginate}
+              paginate={setRestaurantCurrentPage}
             />
           )}
 
@@ -1157,103 +1433,6 @@ const AdminDashboard = () => {
               <option value="DELIVERED">Delivered</option>
               <option value="REJECTED">Rejected</option>
             </select>
-          </div>
-        </div>
-      </>
-    );
-  };
-
-  // Render the Payment Details Modal content
-  const renderPaymentDetailsContent = () => {
-    if (!selectedPayment) return null;
-
-    return (
-      <>
-        <div className="info-grid">
-          <div className="info-section">
-            <h3>Payment Information</h3>
-            <p>
-              <strong>Payment ID:</strong> {selectedPayment._id}
-            </p>
-            <p>
-              <strong>Order ID:</strong> {selectedPayment.orderId}
-            </p>
-            <p>
-              <strong>Date:</strong> {formatDate(selectedPayment.createdAt)}
-            </p>
-            <p>
-              <strong>Status:</strong>{" "}
-              <StatusBadge status={selectedPayment.status} />
-            </p>
-            <p>
-              <strong>Amount:</strong> {formatCurrency(selectedPayment.amount)}
-            </p>
-            <p>
-              <strong>Method:</strong> {selectedPayment.paymentMethod}
-            </p>
-            <p>
-              <strong>Transaction ID:</strong>{" "}
-              {selectedPayment.transactionId || "N/A"}
-            </p>
-          </div>
-
-          <div className="info-section">
-            <h3>Additional Details</h3>
-            {selectedPayment.paymentMethod === "CARD" && (
-              <>
-                <p>
-                  <strong>Stripe Intent ID:</strong>{" "}
-                  {selectedPayment.stripePaymentIntentId || "N/A"}
-                </p>
-                <p>
-                  <strong>Stripe Customer:</strong>{" "}
-                  {selectedPayment.stripeCustomerId || "N/A"}
-                </p>
-              </>
-            )}
-            {selectedPayment.paymentMethod === "PAYPAL" && (
-              <>
-                <p>
-                  <strong>PayPal Order ID:</strong>{" "}
-                  {selectedPayment.paypalOrderId || "N/A"}
-                </p>
-                <p>
-                  <strong>PayPal Payment ID:</strong>{" "}
-                  {selectedPayment.paypalPaymentId || "N/A"}
-                </p>
-              </>
-            )}
-            <p>
-              <strong>User ID:</strong> {selectedPayment.userId}
-            </p>
-            {selectedPayment.error && (
-              <div className="error-message">
-                <strong>Error:</strong> {selectedPayment.error}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="additional-section">
-          <h3>Payment Timeline</h3>
-          <div className="timeline">
-            <div className="timeline-item">
-              <span className="timeline-date">
-                {formatDate(selectedPayment.createdAt)}
-              </span>
-              <span className="timeline-event">Payment created</span>
-            </div>
-            {selectedPayment.updatedAt &&
-              selectedPayment.updatedAt !== selectedPayment.createdAt && (
-                <div className="timeline-item">
-                  <span className="timeline-date">
-                    {formatDate(selectedPayment.updatedAt)}
-                  </span>
-                  <span className="timeline-event">
-                    Payment updated to {selectedPayment.status}
-                  </span>
-                </div>
-              )}
           </div>
         </div>
       </>
@@ -1534,6 +1713,292 @@ const AdminDashboard = () => {
     }
   };
 
+  // Render the Payment Details Modal and Create/Edit Payment Modal
+  const renderPaymentDetailsModal = () => {
+    const isEditMode = paymentEditMode && selectedPayment;
+    const isNewMode = showNewPaymentModal;
+    const isViewMode = showPaymentModal && selectedPayment && !paymentEditMode;
+
+    // Form modal (Create/Edit)
+    if (isEditMode || isNewMode) {
+      return (
+        <Modal
+          isOpen={isEditMode || isNewMode}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setShowNewPaymentModal(false);
+            setPaymentEditMode(false);
+            setSelectedPayment(null);
+          }}
+          title={isEditMode ? "Edit Payment" : "Create New Payment"}
+        >
+          <form onSubmit={handleSubmitPaymentForm} className="payment-form">
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="orderId">Order ID</label>
+                <input
+                  type="text"
+                  id="orderId"
+                  name="orderId"
+                  value={paymentForm.orderId}
+                  onChange={handlePaymentFormChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="userId">User ID</label>
+                <input
+                  type="text"
+                  id="userId"
+                  name="userId"
+                  value={paymentForm.userId}
+                  onChange={handlePaymentFormChange}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="amount">Amount ($)</label>
+                <input
+                  type="number"
+                  id="amount"
+                  name="amount"
+                  min="0.01"
+                  step="0.01"
+                  value={paymentForm.amount}
+                  onChange={handlePaymentFormChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="paymentMethod">Payment Method</label>
+                <select
+                  id="paymentMethod"
+                  name="paymentMethod"
+                  value={paymentForm.paymentMethod}
+                  onChange={handlePaymentFormChange}
+                  required
+                >
+                  <option value="CARD">Credit Card</option>
+                  <option value="PAYPAL">PayPal</option>
+                  <option value="COD">Cash on Delivery</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="status">Status</label>
+                <select
+                  id="status"
+                  name="status"
+                  value={paymentForm.status}
+                  onChange={handlePaymentFormChange}
+                  required
+                >
+                  <option value="PENDING">Pending</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="FAILED">Failed</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="transactionId">Transaction ID</label>
+                <input
+                  type="text"
+                  id="transactionId"
+                  name="transactionId"
+                  value={paymentForm.transactionId}
+                  onChange={handlePaymentFormChange}
+                />
+              </div>
+            </div>
+
+            {/* Payment provider specific fields - conditionally rendered */}
+            {paymentForm.paymentMethod === "CARD" && (
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="stripePaymentIntentId">
+                    Stripe Payment Intent ID
+                  </label>
+                  <input
+                    type="text"
+                    id="stripePaymentIntentId"
+                    name="stripePaymentIntentId"
+                    value={paymentForm.stripePaymentIntentId}
+                    onChange={handlePaymentFormChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="stripeCustomerId">Stripe Customer ID</label>
+                  <input
+                    type="text"
+                    id="stripeCustomerId"
+                    name="stripeCustomerId"
+                    value={paymentForm.stripeCustomerId}
+                    onChange={handlePaymentFormChange}
+                  />
+                </div>
+              </div>
+            )}
+
+            {paymentForm.paymentMethod === "PAYPAL" && (
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="paypalOrderId">PayPal Order ID</label>
+                  <input
+                    type="text"
+                    id="paypalOrderId"
+                    name="paypalOrderId"
+                    value={paymentForm.paypalOrderId}
+                    onChange={handlePaymentFormChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="paypalPaymentId">PayPal Payment ID</label>
+                  <input
+                    type="text"
+                    id="paypalPaymentId"
+                    name="paypalPaymentId"
+                    value={paymentForm.paypalPaymentId}
+                    onChange={handlePaymentFormChange}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="form-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setShowNewPaymentModal(false);
+                  setPaymentEditMode(false);
+                  setSelectedPayment(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary">
+                {isEditMode ? "Update Payment" : "Create Payment"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      );
+    }
+
+    // View payment details modal
+    if (isViewMode) {
+      return (
+        <Modal
+          isOpen={showPaymentModal}
+          onClose={closePaymentModal}
+          title="Payment Details"
+        >
+          <div className="info-grid">
+            <div className="info-section">
+              <h3>Payment Information</h3>
+              <p>
+                <strong>Payment ID:</strong> {selectedPayment._id}
+              </p>
+              <p>
+                <strong>Date:</strong> {formatDate(selectedPayment.createdAt)}
+              </p>
+              <p>
+                <strong>Status:</strong>{" "}
+                <StatusBadge status={selectedPayment.status} />
+              </p>
+              <p>
+                <strong>Method:</strong> {selectedPayment.paymentMethod}
+              </p>
+              <p>
+                <strong>Amount:</strong>{" "}
+                {formatCurrency(selectedPayment.amount)}
+              </p>
+            </div>
+
+            <div className="info-section">
+              <h3>Related Information</h3>
+              <p>
+                <strong>Order ID:</strong> {selectedPayment.orderId}
+              </p>
+              <p>
+                <strong>User ID:</strong> {selectedPayment.userId}
+              </p>
+              <p>
+                <strong>Transaction ID:</strong>{" "}
+                {selectedPayment.transactionId || "N/A"}
+              </p>
+            </div>
+          </div>
+
+          {/* Additional payment provider details */}
+          <div className="additional-section">
+            <h3>Payment Provider Details</h3>
+            {selectedPayment.paymentMethod === "CARD" && (
+              <div className="provider-details">
+                <p>
+                  <strong>Stripe Payment Intent ID:</strong>{" "}
+                  {selectedPayment.stripePaymentIntentId || "N/A"}
+                </p>
+                <p>
+                  <strong>Stripe Customer ID:</strong>{" "}
+                  {selectedPayment.stripeCustomerId || "N/A"}
+                </p>
+              </div>
+            )}
+
+            {selectedPayment.paymentMethod === "PAYPAL" && (
+              <div className="provider-details">
+                <p>
+                  <strong>PayPal Order ID:</strong>{" "}
+                  {selectedPayment.paypalOrderId || "N/A"}
+                </p>
+                <p>
+                  <strong>PayPal Payment ID:</strong>{" "}
+                  {selectedPayment.paypalPaymentId || "N/A"}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="form-actions">
+            <div className="filter-group" style={{ marginRight: "auto" }}>
+              <label htmlFor="update-payment-status">Update Status</label>
+              <select
+                id="update-payment-status"
+                value={selectedPayment.status}
+                onChange={(e) =>
+                  updatePaymentStatus(selectedPayment._id, e.target.value)
+                }
+                className="status-select"
+              >
+                <option value="PENDING">Pending</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="FAILED">Failed</option>
+              </select>
+            </div>
+
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                setPaymentForm(selectedPayment);
+                setPaymentEditMode(true);
+              }}
+            >
+              <EditIcon /> Edit Payment
+            </button>
+          </div>
+        </Modal>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="admin-dashboard">
       <h1>Admin Dashboard</h1>
@@ -1578,15 +2043,6 @@ const AdminDashboard = () => {
       {/* Order Details Modal */}
       <Modal isOpen={showModal} onClose={closeModal} title="Order Details">
         {renderOrderDetailsContent()}
-      </Modal>
-
-      {/* Payment Details Modal */}
-      <Modal
-        isOpen={showPaymentModal}
-        onClose={closePaymentModal}
-        title="Payment Details"
-      >
-        {renderPaymentDetailsContent()}
       </Modal>
 
       {/* Restaurant Details Modal */}
