@@ -8,6 +8,7 @@ export const CartProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const { serviceUrls, handleApiCall } = useApi();
   const userId = localStorage.getItem("userId") || "user123";
+  const token = localStorage.getItem("token");
 
   // Load cart from MongoDB when the provider mounts
   useEffect(() => {
@@ -19,16 +20,21 @@ export const CartProvider = ({ children }) => {
       console.log("Loading cart from database for user:", userId);
       setLoading(true);
 
-      const response = await handleApiCall(
-        fetch(`${serviceUrls.cart}/api/cart/${userId}`)
+      const result = await handleApiCall(
+        fetch(`${serviceUrls.cart}/api/cart/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
       );
 
-      if (response && response.items) {
-        setCart(response.items);
-        console.log("Cart loaded from database:", response.items);
+      // The handleApiCall returns {data, status}
+      if (result && result.data && result.data.items) {
+        setCart(result.data.items);
+        console.log("Cart loaded from database:", result.data.items);
       } else {
         setCart([]);
-        console.log("No items in cart");
+        console.log("No items in cart or empty response:", result);
       }
     } catch (err) {
       console.error("Failed to load cart from database:", err);
@@ -51,12 +57,15 @@ export const CartProvider = ({ children }) => {
         restaurantId: restaurantId || item.restaurantId || "default-restaurant",
       };
 
+      console.log("Cart item to be added:", { userId, ...cartItem });
+
       // Add to database
-      const response = await handleApiCall(
+      const result = await handleApiCall(
         fetch(`${serviceUrls.cart}/api/cart/add`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             userId,
@@ -64,6 +73,8 @@ export const CartProvider = ({ children }) => {
           }),
         })
       );
+
+      console.log("Add to cart response:", result);
 
       // Refresh cart from database to ensure we have the latest data
       await loadCartFromDB();
@@ -83,15 +94,18 @@ export const CartProvider = ({ children }) => {
       console.log(`Updating quantity of item ${itemId} to ${newQuantity}`);
 
       // Update in database
-      await handleApiCall(
+      const result = await handleApiCall(
         fetch(`${serviceUrls.cart}/api/cart/${userId}/${itemId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ quantity: newQuantity }),
         })
       );
+
+      console.log("Update quantity response:", result);
 
       // Refresh cart from database
       await loadCartFromDB();
@@ -107,11 +121,16 @@ export const CartProvider = ({ children }) => {
       console.log("Removing item from cart:", itemId);
 
       // Remove from database
-      await handleApiCall(
+      const result = await handleApiCall(
         fetch(`${serviceUrls.cart}/api/cart/${userId}/${itemId}`, {
           method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         })
       );
+
+      console.log("Remove from cart response:", result);
 
       // Refresh cart from database
       await loadCartFromDB();
@@ -127,11 +146,16 @@ export const CartProvider = ({ children }) => {
       console.log("Clearing cart");
 
       // Clear from database
-      await handleApiCall(
+      const result = await handleApiCall(
         fetch(`${serviceUrls.cart}/api/cart/${userId}`, {
           method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         })
       );
+
+      console.log("Clear cart response:", result);
 
       // Update local state
       setCart([]);
