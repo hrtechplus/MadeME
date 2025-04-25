@@ -2,10 +2,6 @@ const express = require("express");
 const router = express.Router();
 const { body } = require("express-validator");
 const orderController = require("../controllers/orderController");
-const authMiddleware = require("../middleware/auth");
-
-// Apply authentication middleware to all routes
-router.use(authMiddleware);
 
 // Create new order
 router.post(
@@ -13,6 +9,8 @@ router.post(
   [
     body("userId").notEmpty(),
     body("restaurantId").notEmpty(),
+    body("items").isArray(),
+    body("total").isNumeric(),
     body("deliveryAddress").isObject(),
     body("deliveryAddress.street").notEmpty(),
     body("deliveryAddress.city").notEmpty(),
@@ -29,6 +27,7 @@ router.patch(
     body("status").isIn([
       "PENDING",
       "CONFIRMED",
+      "REJECTED",
       "PREPARING",
       "OUT_FOR_DELIVERY",
       "DELIVERED",
@@ -37,20 +36,20 @@ router.patch(
   orderController.updateOrderStatus
 );
 
+// Handle restaurant response
+router.post(
+  "/:id/restaurant-response",
+  [
+    body("response").isIn(["ACCEPTED", "REJECTED"]),
+    body("reason").optional().isString(),
+  ],
+  orderController.handleRestaurantResponse
+);
+
 // Get orders by user
 router.get("/user/:userId", orderController.getUserOrders);
 
 // Get orders by restaurant
 router.get("/restaurant/:restaurantId", orderController.getRestaurantOrders);
-
-// Get orders by driver
-router.get("/driver/:driverId", orderController.getDriverOrders);
-
-// Assign driver to order
-router.post(
-  "/:id/assign-driver",
-  [body("driverId").notEmpty()],
-  orderController.assignDriver
-);
 
 module.exports = router;

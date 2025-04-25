@@ -1,6 +1,15 @@
 const jwt = require("jsonwebtoken");
 
 module.exports = (req, res, next) => {
+  // For development or testing - if this environment variable is set, bypass authentication
+  if (
+    process.env.NODE_ENV === "development" ||
+    process.env.BYPASS_AUTH === "true"
+  ) {
+    console.log("Auth bypassed in development mode");
+    return next();
+  }
+
   try {
     const token = req.headers.authorization?.split(" ")[1];
 

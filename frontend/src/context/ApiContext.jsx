@@ -1,71 +1,54 @@
-import { createContext, useState, useContext } from "react";
+import React, { createContext, useContext, useState } from "react";
 
-export const ApiContext = createContext();
+const ApiContext = createContext();
 
-export const ApiProvider = ({ children }) => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const serviceUrls = {
-    cart: import.meta.env.VITE_CART_SERVICE_URL || "http://localhost:5002",
+export function ApiProvider({ children }) {
+  // Default service URLs - can be overridden by environment variables
+  const [serviceUrls] = useState({
+    auth: import.meta.env.VITE_AUTH_SERVICE_URL || "http://localhost:5000",
+    cart: import.meta.env.VITE_CART_SERVICE_URL || "http://localhost:5003",
     order: import.meta.env.VITE_ORDER_SERVICE_URL || "http://localhost:5001",
     payment:
       import.meta.env.VITE_PAYMENT_SERVICE_URL || "http://localhost:5003",
     restaurant:
-      import.meta.env.VITE_RESTAURANT_SERVICE_URL || "http://localhost:5000",
-    auth: import.meta.env.VITE_AUTH_SERVICE_URL || "http://localhost:5004",
-  };
+      import.meta.env.VITE_RESTAURANT_SERVICE_URL || "http://localhost:5004",
+  });
 
+  // Generic API call handler with error handling
   const handleApiCall = async (fetchPromise) => {
-    // If fetchPromise is null, clear the error
-    if (fetchPromise === null) {
-      setError(null);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
     try {
-      // Get the token from localStorage
-      const token = localStorage.getItem("token");
+      const response = await fetchPromise;
 
-      // If the fetchPromise is a string (URL), create a new fetch request
-      const request =
-        typeof fetchPromise === "string"
-          ? fetch(fetchPromise, {
-              headers: token ? { Authorization: `Bearer ${token}` } : {},
-            })
-          : fetchPromise;
-
-      const response = await request;
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
-        );
+        // Try to parse error message from response
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Error: ${response.status}`);
+        } catch (e) {
+          throw new Error(`Error: ${response.status}`);
+        }
       }
+
+      // Parse successful response
       const data = await response.json();
-      return { data };
+      return { data, status: response.status };
     } catch (error) {
-      setError(error.message);
+      console.error("API call error:", error.message);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
-    <ApiContext.Provider value={{ loading, error, handleApiCall, serviceUrls }}>
+    <ApiContext.Provider value={{ serviceUrls, handleApiCall }}>
       {children}
     </ApiContext.Provider>
   );
-};
+}
 
-export const useApi = () => {
+export function useApi() {
   const context = useContext(ApiContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error("useApi must be used within an ApiProvider");
   }
   return context;
-};
+}

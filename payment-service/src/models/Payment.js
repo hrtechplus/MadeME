@@ -5,27 +5,22 @@ const paymentSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  userId: {
-    type: String,
-    required: true,
-  },
   amount: {
     type: Number,
     required: true,
   },
   status: {
     type: String,
-    enum: ["PENDING", "SUCCESS", "FAILED"],
+    enum: ["PENDING", "COMPLETED", "FAILED"],
     default: "PENDING",
   },
-  stripePaymentIntentId: {
+  transactionId: {
     type: String,
+    required: true,
   },
-  stripeCustomerId: {
+  paymentMethod: {
     type: String,
-  },
-  error: {
-    type: String,
+    required: true,
   },
   createdAt: {
     type: Date,

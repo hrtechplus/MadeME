@@ -1,92 +1,252 @@
-# Food Delivery Application
+# Food Delivery System
 
-A microservices-based food delivery application with separate services for cart, payment, and order management.
+A microservices-based food delivery system with a modern React frontend.
 
-## Prerequisites
+## System Architecture
 
-- Node.js (v14 or higher)
-- npm (v6 or higher)
-- MongoDB (running locally or accessible via connection string)
-- Stripe account (for payment processing)
+The system consists of the following services:
 
-## Project Structure
+1. **Frontend** (React)
 
+   - User interface for customers and restaurants
+   - Real-time order tracking
+   - Payment processing
+   - Order management
+
+2. **Order Service**
+
+   - Order creation and management
+   - Restaurant order handling
+   - Order status updates
+
+3. **Payment Service**
+   - Payment processing
+   - Transaction management
+   - Payment status tracking
+
+## Features
+
+### Customer Features
+
+- Browse restaurants and menus
+- Add items to cart
+- Place orders
+- Track order status
+- View order history
+- Make payments
+- Manage delivery addresses
+
+### Restaurant Features
+
+- View incoming orders
+- Accept/reject orders
+- Update order status
+- View order history
+- Manage menu items
+
+## API Documentation
+
+### Order Service
+
+#### Create Order
+
+```http
+POST /api/order
 ```
-.
-├── cart-service/         # Cart management service
-├── payment-service/      # Payment processing service
-├── order-service/        # Order management service
-└── frontend/            # React frontend application
+
+Request Body:
+
+```json
+{
+  "userId": "string",
+  "restaurantId": "string",
+  "items": [
+    {
+      "itemId": "string",
+      "name": "string",
+      "price": number,
+      "quantity": number
+    }
+  ],
+  "total": number,
+  "deliveryAddress": {
+    "street": "string",
+    "city": "string",
+    "state": "string",
+    "zipCode": "string"
+  }
+}
 ```
 
-## Environment Setup
+#### Restaurant Response
 
-1. Create `.env` files in each service directory with the following variables:
-
-### Cart Service (.env)
-
-```
-PORT=5002
-MONGODB_URI=mongodb://localhost:27017/cart-service
+```http
+POST /api/order/:id/restaurant-response
 ```
 
-### Payment Service (.env)
+Request Body:
 
-```
-PORT=5003
-MONGODB_URI=mongodb://localhost:27017/payment-service
-STRIPE_SECRET_KEY=your_stripe_secret_key
-```
-
-### Order Service (.env)
-
-```
-PORT=5001
-MONGODB_URI=mongodb://localhost:27017/order-service
+```json
+{
+  "response": "ACCEPTED" | "REJECTED",
+  "reason": "string" // Optional, required for rejection
+}
 ```
 
-### Frontend (.env)
+#### Update Order Status
 
-```
-VITE_STRIPE_PUBLIC_KEY=your_stripe_public_key
-VITE_CART_SERVICE_URL=http://localhost:5002
-VITE_ORDER_SERVICE_URL=http://localhost:5001
-VITE_PAYMENT_SERVICE_URL=http://localhost:5003
+```http
+PATCH /api/order/:id/status
 ```
 
-## Starting the Backend Services
+Request Body:
 
-1. Start MongoDB if not already running
-2. Open separate terminal windows for each service
+```json
+{
+  "status": "PENDING" | "CONFIRMED" | "REJECTED" | "PREPARING" | "OUT_FOR_DELIVERY" | "DELIVERED"
+}
+```
 
-### Cart Service
+#### Get User Orders
 
-```bash
-cd cart-service
-npm install
-npm start
+```http
+GET /api/order/user/:userId
+```
+
+#### Get Restaurant Orders
+
+```http
+GET /api/order/restaurant/:restaurantId
 ```
 
 ### Payment Service
 
-```bash
-cd payment-service
-npm install
-npm start
+#### Process Payment
+
+```http
+POST /api/payment
 ```
 
-### Order Service
+Request Body:
 
-```bash
-cd order-service
-npm install
-npm start
+```json
+{
+  "orderId": "string",
+  "amount": number,
+  "cardDetails": {
+    "number": "string",
+    "expiry": "string",
+    "cvv": "string",
+    "name": "string"
+  }
+}
 ```
 
-## Starting the Frontend
+## Order Status Flow
 
-1. Open a new terminal window
-2. Navigate to the frontend directory and start the development server:
+1. **PENDING**
+
+   - Initial state when order is created
+   - Waiting for restaurant response
+
+2. **CONFIRMED**
+
+   - Restaurant has accepted the order
+   - Payment is processed
+   - Order is being prepared
+
+3. **REJECTED**
+
+   - Restaurant has rejected the order
+   - Includes rejection reason
+   - Payment is refunded if already processed
+
+4. **PREPARING**
+
+   - Restaurant is preparing the order
+   - Food is being cooked
+
+5. **OUT_FOR_DELIVERY**
+
+   - Order is being delivered
+   - Driver is assigned
+
+6. **DELIVERED**
+   - Order has been delivered
+   - Transaction is complete
+
+## Restaurant Response Flow
+
+1. **PENDING**
+
+   - Initial state
+   - Restaurant needs to respond
+
+2. **ACCEPTED**
+
+   - Restaurant accepts the order
+   - Order status moves to CONFIRMED
+   - Payment processing begins
+
+3. **REJECTED**
+   - Restaurant rejects the order
+   - Order status moves to REJECTED
+   - Rejection reason is recorded
+   - Payment is refunded if processed
+
+## Data Models
+
+### Order Model
+
+```javascript
+{
+  userId: String,
+  restaurantId: String,
+  items: [{
+    itemId: String,
+    name: String,
+    price: Number,
+    quantity: Number
+  }],
+  total: Number,
+  status: String, // PENDING, CONFIRMED, REJECTED, PREPARING, OUT_FOR_DELIVERY, DELIVERED
+  restaurantResponse: String, // PENDING, ACCEPTED, REJECTED
+  rejectionReason: String,
+  deliveryAddress: {
+    street: String,
+    city: String,
+    state: String,
+    zipCode: String
+  },
+  paymentId: String,
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### Payment Model
+
+```javascript
+{
+  orderId: String,
+  amount: Number,
+  status: String, // PENDING, COMPLETED, FAILED
+  transactionId: String,
+  paymentMethod: String,
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+## Setup Instructions
+
+### Prerequisites
+
+- Node.js (v14 or higher)
+- MongoDB
+- npm or yarn
+
+### Frontend Setup
 
 ```bash
 cd frontend
@@ -94,62 +254,91 @@ npm install
 npm run dev
 ```
 
-The frontend will be available at http://localhost:5173
+### Order Service Setup
 
-## API Endpoints
+```bash
+cd order-service
+npm install
+npm start
+```
 
-### Cart Service
+### Payment Service Setup
 
-- GET /api/cart/:userId - Get user's cart
-- POST /api/cart/:userId - Add item to cart
-- PUT /api/cart/:userId - Update cart
-- DELETE /api/cart/:userId - Clear cart
+```bash
+cd payment-service
+npm install
+npm start
+```
 
-### Payment Service
+### Environment Variables
 
-- POST /api/payment/create-intent/:orderId - Create payment intent
-- GET /api/payment/status/:orderId - Check payment status
+#### Order Service
 
-### Order Service
+```env
+PORT=5001
+MONGODB_URI=mongodb://localhost:27017/order-service
+```
 
-- POST /api/order - Create new order
-- GET /api/order/user/:userId - Get user's orders
-- GET /api/order/:orderId - Get order details
-- PUT /api/order/:orderId - Update order status
+#### Payment Service
 
-## Health Check Endpoints
+```env
+PORT=5003
+MONGODB_URI=mongodb://localhost:27017/payment-service
+```
 
-Each service has a health check endpoint:
+## Testing
 
-- Cart Service: http://localhost:5002/health
-- Payment Service: http://localhost:5003/health
-- Order Service: http://localhost:5001/health
+### Order Service Tests
 
-## Troubleshooting
+```bash
+cd order-service
+npm test
+```
 
-1. If you encounter port conflicts:
+### Payment Service Tests
 
-   - Check if any service is already running on the required ports
-   - Use `netstat -ano | findstr :PORT` to find processes using the port
-   - Use `taskkill /F /PID PROCESS_ID` to terminate the process
+```bash
+cd payment-service
+npm test
+```
 
-2. If MongoDB connection fails:
+## Error Handling
 
-   - Ensure MongoDB is running
-   - Verify the connection string in .env files
-   - Check if MongoDB port (27017) is accessible
+The system implements comprehensive error handling:
 
-3. If Stripe integration fails:
-   - Verify Stripe API keys in environment variables
-   - Check Stripe dashboard for any errors
-   - Ensure proper CORS configuration
+1. **Validation Errors**
 
-## Development
+   - Input validation for all API endpoints
+   - Clear error messages for invalid data
 
-- The frontend uses Vite for development
-- Backend services use Express.js
-- All services use MongoDB for data storage
-- Payment processing is handled by Stripe
+2. **Business Logic Errors**
+
+   - Order status validation
+   - Payment processing errors
+   - Restaurant response validation
+
+3. **System Errors**
+   - Database connection errors
+   - Service communication errors
+   - Network errors
+
+## Security
+
+1. **Data Validation**
+
+   - Input sanitization
+   - Schema validation
+   - Type checking
+
+2. **Error Handling**
+
+   - Secure error messages
+   - No sensitive data exposure
+
+3. **API Security**
+   - Rate limiting
+   - CORS configuration
+   - Request validation
 
 ## Contributing
 

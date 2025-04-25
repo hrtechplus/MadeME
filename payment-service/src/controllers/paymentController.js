@@ -96,8 +96,8 @@ exports.handleWebhook = async (req, res) => {
 // Get payment status
 exports.getPaymentStatus = async (req, res) => {
   try {
-    const { orderId } = req.params;
-    const payment = await Payment.findOne({ orderId });
+    const { paymentId } = req.params;
+    const payment = await Payment.findById(paymentId);
 
     if (!payment) {
       return res.status(404).json({ message: "Payment not found" });
@@ -105,9 +105,7 @@ exports.getPaymentStatus = async (req, res) => {
 
     res.json(payment);
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error fetching payment status", error: error.message });
+    res.status(500).json({ message: "Error fetching payment status" });
   }
 };
 
@@ -158,3 +156,69 @@ async function handlePaymentFailure(paymentIntent) {
     console.error("Error handling payment failure:", error);
   }
 }
+
+// Mock payment processing
+const processPayment = async (paymentData) => {
+  // Simulate payment processing delay
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  // 80% success rate for testing
+  const isSuccess = Math.random() > 0.2;
+
+  return {
+    success: isSuccess,
+    transactionId: `tx_${Date.now()}`,
+    message: isSuccess
+      ? "Payment successful"
+      : "Payment failed - Insufficient funds",
+  };
+};
+
+exports.createPayment = async (req, res) => {
+  try {
+    const { orderId, amount, cardDetails } = req.body;
+
+    // Validate required fields
+    if (!orderId || !amount || !cardDetails) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // Process payment
+    const paymentResult = await processPayment({
+      orderId,
+      amount,
+      cardDetails,
+    });
+
+    // Create payment record
+    const payment = new Payment({
+      orderId,
+      amount,
+      status: paymentResult.success ? "COMPLETED" : "FAILED",
+      transactionId: paymentResult.transactionId,
+      paymentMethod: "CARD",
+    });
+
+    await payment.save();
+
+    if (paymentResult.success) {
+      res.status(200).json({
+        success: true,
+        paymentId: payment._id,
+        transactionId: payment.transactionId,
+        message: "Payment processed successfully",
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: paymentResult.message,
+      });
+    }
+  } catch (error) {
+    console.error("Payment error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error processing payment",
+    });
+  }
+};

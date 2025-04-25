@@ -66,7 +66,7 @@ mongoose
     process.exit(1);
   });
 
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT || 5003;
 app.listen(PORT, () => {
   logger.info(`Payment service running on port ${PORT}`);
 });

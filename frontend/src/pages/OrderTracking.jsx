@@ -14,7 +14,7 @@ import {
   Divider,
 } from "@mui/material";
 import { useParams } from "react-router-dom";
-import axios from "axios";
+import { useApi } from "../context/ApiContext";
 
 const orderSteps = [
   "Order Placed",
@@ -30,12 +30,14 @@ const statusToStep = {
   PREPARING: 2,
   OUT_FOR_DELIVERY: 3,
   DELIVERED: 4,
+  REJECTED: 0, // Add REJECTED status mapping
 };
 
 function OrderTracking() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const { id } = useParams();
+  const { serviceUrls, handleApiCall } = useApi();
 
   useEffect(() => {
     fetchOrder();
@@ -45,8 +47,8 @@ function OrderTracking() {
 
   const fetchOrder = async () => {
     try {
-      const response = await axios.get(
-        `http://localhost:5001/api/orders/${id}`
+      const response = await handleApiCall(
+        fetch(`${serviceUrls.order}/api/orders/${id}`)
       );
       setOrder(response.data);
     } catch (error) {

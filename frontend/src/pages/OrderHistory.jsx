@@ -1,44 +1,47 @@
 import React, { useState, useEffect } from "react";
 import { useApi } from "../context/ApiContext";
+import { useToast } from "../context/ToastContext";
 import "../styles/OrderHistory.css";
 
 const OrderHistory = () => {
   const [orders, setOrders] = useState([]);
-  const { loading, error, handleApiCall, serviceUrls } = useApi();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { handleApiCall, serviceUrls } = useApi();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const userId = localStorage.getItem("userId");
-        if (!userId) {
-          throw new Error("User not authenticated");
-        }
-
-        const { data } = await handleApiCall(
-          `${serviceUrls.order}/orders/user/${userId}`
+        const userId = localStorage.getItem("userId") || "test-user";
+        const response = await handleApiCall(
+          fetch(`${serviceUrls.order}/api/orders/user/${userId}`)
         );
-        setOrders(data);
-      } catch (err) {
-        console.error("Error fetching orders:", err);
+        setOrders(response.data);
+        setLoading(false);
+      } catch (error) {
+        setError("Failed to load order history. Please try again.");
+        showToast("Failed to load order history", "error");
+        setLoading(false);
       }
     };
 
     fetchOrders();
-  }, [handleApiCall, serviceUrls.order]);
+  }, [handleApiCall, serviceUrls.order, showToast]);
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case "pending":
+    switch (status.toUpperCase()) {
+      case "PENDING":
         return "#ffa500";
-      case "confirmed":
+      case "CONFIRMED":
         return "#4CAF50";
-      case "preparing":
+      case "PREPARING":
         return "#2196F3";
-      case "out_for_delivery":
+      case "OUT_FOR_DELIVERY":
         return "#9C27B0";
-      case "delivered":
+      case "DELIVERED":
         return "#4CAF50";
-      case "cancelled":
+      case "REJECTED":
         return "#f44336";
       default:
         return "#666";
@@ -100,7 +103,9 @@ const OrderHistory = () => {
             <div className="order-footer">
               <div className="delivery-info">
                 <p className="delivery-address">
-                  <strong>Delivery Address:</strong> {order.deliveryAddress}
+                  <strong>Delivery Address:</strong>{" "}
+                  {order.deliveryAddress &&
+                    `${order.deliveryAddress.street}, ${order.deliveryAddress.city}, ${order.deliveryAddress.state} ${order.deliveryAddress.zipCode}`}
                 </p>
                 {order.driverId && (
                   <p className="driver-info">

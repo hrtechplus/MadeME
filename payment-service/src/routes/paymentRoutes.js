@@ -25,6 +25,17 @@ router.post(
   paymentController.createPaymentIntent
 );
 
+// Process payment (direct payment without Stripe)
+router.post(
+  "/process",
+  [
+    body("orderId").notEmpty(),
+    body("amount").isNumeric(),
+    body("cardDetails").isObject(),
+  ],
+  paymentController.createPayment
+);
+
 // Handle Stripe webhook
 router.post(
   "/webhook",

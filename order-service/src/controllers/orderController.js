@@ -1,5 +1,4 @@
 const Order = require("../models/Order");
-const { axiosWithRetry } = require("../utils/retry");
 const { validationResult } = require("express-validator");
 
 // Create new order
@@ -10,36 +9,24 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { userId, restaurantId, deliveryAddress } = req.body;
+    const { userId, restaurantId, items, deliveryAddress, total } = req.body;
 
-    // Fetch cart from cart service with retry
-    const cart = await axiosWithRetry({
-      method: "get",
-      url: `${process.env.CART_SERVICE_URL}/api/cart/${userId}`,
-    });
-
-    if (!cart.items || cart.items.length === 0) {
-      return res.status(400).json({ message: "Cart is empty" });
+    if (!items || items.length === 0) {
+      return res.status(400).json({ message: "Order items cannot be empty" });
     }
 
     // Create new order
     const order = new Order({
       userId,
       restaurantId,
-      items: cart.items,
-      total: cart.total,
+      items,
+      total,
       deliveryAddress,
       status: "PENDING",
+      restaurantResponse: "PENDING",
     });
 
     await order.save();
-
-    // Clear cart after order creation with retry
-    await axiosWithRetry({
-      method: "delete",
-      url: `${process.env.CART_SERVICE_URL}/api/cart/${userId}`,
-    });
-
     res.status(201).json(order);
   } catch (error) {
     console.error("Order creation error:", error);
@@ -69,6 +56,39 @@ exports.updateOrderStatus = async (req, res) => {
     res
       .status(500)
       .json({ message: "Error updating order status", error: error.message });
+  }
+};
+
+// Handle restaurant response
+exports.handleRestaurantResponse = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { response, reason } = req.body;
+
+    if (!["ACCEPTED", "REJECTED"].includes(response)) {
+      return res.status(400).json({ message: "Invalid response" });
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    order.restaurantResponse = response;
+    if (response === "REJECTED") {
+      order.status = "REJECTED";
+      order.rejectionReason = reason;
+    } else {
+      order.status = "CONFIRMED";
+    }
+
+    await order.save();
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({
+      message: "Error processing restaurant response",
+      error: error.message,
+    });
   }
 };
 

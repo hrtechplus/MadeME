@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useApi } from "../context/ApiContext";
+import { useToast } from "../context/ToastContext";
 import "../styles/Checkout.css";
 
 const Checkout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { serviceUrls, handleApiCall } = useApi();
+  const { showToast } = useToast();
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,20 +27,22 @@ const Checkout = () => {
       // If no cart in state, try to fetch from API
       const fetchCart = async () => {
         try {
+          const userId = localStorage.getItem("userId") || "test-user";
           const response = await handleApiCall(
-            fetch(`${serviceUrls.cart}/cart`)
+            fetch(`http://localhost:5003/api/cart/${userId}`)
           );
-          setCart(response.items || []);
+          setCart(response.data?.items || []);
           setLoading(false);
         } catch (err) {
           setError("Failed to load cart. Please try again later.");
+          showToast("Failed to load cart", "error");
           setLoading(false);
         }
       };
 
       fetchCart();
     }
-  }, [location.state, handleApiCall, serviceUrls.cart]);
+  }, [location.state, handleApiCall, serviceUrls.cart, showToast]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -56,39 +60,73 @@ const Checkout = () => {
       !deliveryAddress.zipCode
     ) {
       setError("Please fill in all delivery address fields");
+      showToast("Please fill in all delivery address fields", "error");
+      return;
+    }
+
+    if (cart.length === 0) {
+      setError("Your cart is empty");
+      showToast("Your cart is empty", "error");
       return;
     }
 
     try {
+      setLoading(true);
       // Create order
+      const orderData = {
+        userId: localStorage.getItem("userId") || "test-user",
+        restaurantId: cart[0]?.restaurantId || "default-restaurant",
+        items: cart.map((item) => ({
+          itemId: item._id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        deliveryAddress,
+        total: cart.reduce(
+          (total, item) => total + item.price * item.quantity,
+          0
+        ),
+        status: "PENDING",
+      };
+
+      // Use hardcoded URLs for now to ensure correct ports are used
       const orderResponse = await handleApiCall(
-        fetch(`${serviceUrls.order}/orders`, {
+        fetch("http://localhost:5001/api/order", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            items: cart,
-            deliveryAddress,
-            total: cart.reduce(
-              (total, item) => total + item.price * item.quantity,
-              0
-            ),
-          }),
+          body: JSON.stringify(orderData),
         })
       );
 
-      // Clear cart
+      // Clear cart - using hardcoded URL to avoid port confusion
       await handleApiCall(
-        fetch(`${serviceUrls.cart}/cart`, {
-          method: "DELETE",
-        })
+        fetch(
+          `http://localhost:5003/api/cart/${
+            localStorage.getItem("userId") || "test-user"
+          }`,
+          {
+            method: "DELETE",
+          }
+        )
       );
 
-      // Navigate to payment page
-      navigate("/payment", { state: { orderId: orderResponse._id } });
+      showToast("Order created successfully", "success");
+      // Navigate to payment page with order details
+      navigate("/payment", {
+        state: {
+          orderId: orderResponse.data._id,
+          amount: orderResponse.data.total,
+        },
+      });
     } catch (err) {
       setError("Failed to process checkout. Please try again.");
+      showToast("Failed to process checkout", "error");
+      console.error("Checkout error:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -108,6 +146,9 @@ const Checkout = () => {
     return (
       <div className="error-container">
         <div className="error">Error: {error}</div>
+        <button className="retry-btn" onClick={() => setError(null)}>
+          Try Again
+        </button>
       </div>
     );
   }

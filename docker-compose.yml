@@ -1,4 +1,4 @@
-version: "3.8"
+version: "3"
 
 services:
   mongodb:
@@ -7,60 +7,68 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=password
+    networks:
+      - mademe_network
 
-  restaurant-service:
-    build: ./restaurant-service
+  frontend:
+    build: ./frontend
     ports:
-      - "5000:5000"
+      - "5173:5173"
     environment:
-      - MONGODB_URI=mongodb://admin:password@mongodb:27017/mademe-restaurants?authSource=admin
-      - JWT_SECRET=${JWT_SECRET}
-      - NODE_ENV=production
+      - VITE_CART_SERVICE_URL=http://localhost:5003
+      - VITE_ORDER_SERVICE_URL=http://localhost:5001
+      - VITE_PAYMENT_SERVICE_URL=http://localhost:5003
+      - VITE_RESTAURANT_SERVICE_URL=http://localhost:5004
     depends_on:
-      - mongodb
+      - cart-service
+      - order-service
+      - payment-service
+    networks:
+      - mademe_network
 
   cart-service:
     build: ./cart-service
     ports:
       - "5003:5003"
     environment:
-      - MONGODB_URI=mongodb://admin:password@mongodb:27017/mademe-cart?authSource=admin
-      - JWT_SECRET=${JWT_SECRET}
-      - NODE_ENV=production
+      - PORT=5003
+      - MONGODB_URI=mongodb://mongodb:27017/cart-service
     depends_on:
       - mongodb
+    networks:
+      - mademe_network
 
   order-service:
     build: ./order-service
     ports:
       - "5001:5001"
     environment:
-      - MONGODB_URI=mongodb://admin:password@mongodb:27017/mademe-orders?authSource=admin
-      - CART_SERVICE_URL=http://cart-service:5003
-      - PAYMENT_SERVICE_URL=http://payment-service:5002
-      - JWT_SECRET=${JWT_SECRET}
-      - NODE_ENV=production
+      - PORT=5001
+      - MONGODB_URI=mongodb://mongodb:27017/order-service
+      - PAYMENT_SERVICE_URL=http://payment-service:5003
+      - RESTAURANT_SERVICE_URL=http://restaurant-service:5004
     depends_on:
       - mongodb
-      - cart-service
+    networks:
+      - mademe_network
 
   payment-service:
     build: ./payment-service
     ports:
-      - "5002:5002"
+      - "5003:5003"
     environment:
-      - MONGODB_URI=mongodb://admin:password@mongodb:27017/mademe-payments?authSource=admin
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - PORT=5003
+      - MONGODB_URI=mongodb://mongodb:27017/payment-service
       - ORDER_SERVICE_URL=http://order-service:5001
-      - JWT_SECRET=${JWT_SECRET}
-      - NODE_ENV=production
     depends_on:
       - mongodb
       - order-service
+    networks:
+      - mademe_network
+
+networks:
+  mademe_network:
+    driver: bridge
 
 volumes:
   mongodb_data:

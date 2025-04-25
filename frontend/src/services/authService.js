@@ -1,19 +1,27 @@
 import { useApi } from "../context/ApiContext";
+import { sampleUser, loginWithSampleUser } from "./sampleUser";
 
 const useAuth = () => {
   const { handleApiCall, serviceUrls } = useApi();
+  const isDevelopment = true; // Set to true for development mode
 
   const login = async (email, password) => {
     try {
+      // For development mode, use sample user if credentials match
+      if (isDevelopment && email === sampleUser.email && password === sampleUser.password) {
+        console.log("Using sample user login in development mode");
+        return await loginWithSampleUser();
+      }
+
+      // Production mode - use real authentication
       const { data } = await handleApiCall(
-        `${serviceUrls.auth}/api/auth/login`,
-        {
+        fetch(`${serviceUrls.auth}/api/auth/login`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ email, password }),
-        }
+        })
       );
 
       if (data.token) {

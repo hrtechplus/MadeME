@@ -38,11 +38,20 @@ const orderSchema = new mongoose.Schema({
     enum: [
       "PENDING",
       "CONFIRMED",
+      "REJECTED",
       "PREPARING",
       "OUT_FOR_DELIVERY",
       "DELIVERED",
     ],
     default: "PENDING",
+  },
+  restaurantResponse: {
+    type: String,
+    enum: ["PENDING", "ACCEPTED", "REJECTED"],
+    default: "PENDING",
+  },
+  rejectionReason: {
+    type: String,
   },
   deliveryAddress: {
     street: String,

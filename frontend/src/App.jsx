@@ -27,6 +27,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Orders from "./pages/Orders";
 import { ApiProvider, useApi } from "./context/ApiContext";
 import Payment from "./pages/Payment";
+import { ToastProvider } from "./context/ToastContext";
 import "./App.css";
 
 const theme = createTheme({
@@ -143,11 +144,13 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
-        <ApiProvider>
-          <AppContent />
-        </ApiProvider>
-      </Router>
+      <ApiProvider>
+        <ToastProvider>
+          <Router>
+            <AppContent />
+          </Router>
+        </ToastProvider>
+      </ApiProvider>
     </ThemeProvider>
   );
 }

@@ -1,150 +1,188 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useApi } from "../context/ApiContext";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements, PaymentElement } from "@stripe/react-stripe-js";
+import { useToast } from "../context/ToastContext";
 import "../styles/Payment.css";
 
-const stripePromise = (() => {
-  const publicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
-  if (!publicKey || publicKey === "your_stripe_public_key_here") {
-    console.warn("Stripe public key is not configured");
-    return null;
-  }
-  return loadStripe(publicKey);
-})();
-
-const PaymentForm = ({ clientSecret }) => {
-  const [stripe, setStripe] = useState(null);
+const Payment = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { serviceUrls, handleApiCall } = useApi();
+  const { showToast } = useToast();
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [cardDetails, setCardDetails] = useState({
+    number: "",
+    expiry: "",
+    cvv: "",
+    name: "",
+  });
+
+  const orderId = location.state?.orderId;
+  const amount = location.state?.amount;
 
   useEffect(() => {
-    if (stripePromise) {
-      stripePromise
-        .then((stripeInstance) => {
-          setStripe(stripeInstance);
-        })
-        .catch((error) => {
-          console.error("Failed to load Stripe:", error);
-          setError("Failed to initialize payment system");
-        });
+    if (!orderId || !amount) {
+      setError("Invalid order details. Please try again.");
+      showToast("Invalid order details", "error");
     }
-  }, []);
+  }, [orderId, amount, showToast]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setCardDetails((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!stripe) {
-      setError("Payment system is not ready. Please try again later.");
-      return;
-    }
-
-    setIsProcessing(true);
+    setLoading(true);
+    setError(null);
 
     try {
-      const { error: stripeError } = await stripe.confirmPayment({
-        elements: {
-          clientSecret,
-        },
-        confirmParams: {
-          return_url: `${window.location.origin}/order-confirmation`,
-        },
-      });
+      const response = await handleApiCall(
+        fetch(`${serviceUrls.payment}/api/payment/process`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            orderId,
+            amount,
+            cardDetails,
+          }),
+        })
+      );
 
-      if (stripeError) {
-        setError(stripeError.message);
+      if (response.data.success) {
+        setSuccess(true);
+        showToast("Payment successful!", "success");
+        // Show success message for 3 seconds then redirect
+        setTimeout(() => {
+          navigate("/orders", {
+            state: {
+              message: "Order placed successfully!",
+              orderId: response.data.paymentId,
+            },
+          });
+        }, 3000);
+      } else {
+        setError(response.data.message || "Payment failed. Please try again.");
+        showToast(response.data.message || "Payment failed", "error");
       }
-    } catch (error) {
-      setError(error.message || "An unexpected error occurred.");
+    } catch (err) {
+      setError(err.message || "Error processing payment. Please try again.");
+      showToast("Error processing payment", "error");
     } finally {
-      setIsProcessing(false);
+      setLoading(false);
     }
   };
 
-  if (!stripePromise) {
-    return (
-      <div className="payment">
-        <div className="error">
-          Payment system is not configured. Please contact support.
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="payment-form">
-      <PaymentElement />
-      {error && <div className="error">{error}</div>}
-      <button
-        type="submit"
-        disabled={!stripe || isProcessing}
-        className="payment-button"
-      >
-        {isProcessing ? "Processing..." : "Pay Now"}
-      </button>
-    </form>
-  );
-};
-
-const Payment = () => {
-  const { orderId } = useParams();
-  const [clientSecret, setClientSecret] = useState(null);
-  const [error, setError] = useState(null);
-  const { handleApiCall, serviceUrls } = useApi();
-
-  useEffect(() => {
-    const fetchPaymentIntent = async () => {
-      try {
-        const response = await handleApiCall(
-          fetch(`${serviceUrls.payment}/api/payment/create-intent/${orderId}`)
-        );
-        setClientSecret(response.data.clientSecret);
-      } catch (error) {
-        setError(
-          error.message || "Failed to initialize payment. Please try again."
-        );
-      }
-    };
-
-    if (orderId) {
-      fetchPaymentIntent();
-    }
-  }, [orderId, handleApiCall, serviceUrls.payment]);
-
   if (error) {
     return (
-      <div className="payment">
-        <div className="error">{error}</div>
+      <div className="payment-container">
+        <div className="error-message">
+          <h2>Error</h2>
+          <p>{error}</p>
+          <button className="retry-button" onClick={() => setError(null)}>
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
 
-  if (!clientSecret) {
+  if (success) {
     return (
-      <div className="payment">
-        <div className="loading">Loading payment form...</div>
-      </div>
-    );
-  }
-
-  if (!stripePromise) {
-    return (
-      <div className="payment">
-        <div className="error">
-          Payment system is not configured. Please contact support.
+      <div className="payment-container">
+        <div className="success-message">
+          <h2>Payment Successful!</h2>
+          <p>Your order has been placed successfully.</p>
+          <div className="loading-spinner"></div>
+          <p>Redirecting to orders page...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="payment">
-      <h2>Complete Your Payment</h2>
-      <div className="payment-content">
-        <Elements stripe={stripePromise} options={{ clientSecret }}>
-          <PaymentForm clientSecret={clientSecret} />
-        </Elements>
+    <div className="payment-container">
+      <div className="payment-card">
+        <h2>Payment Details</h2>
+        <p className="order-amount">Total Amount: ${amount?.toFixed(2)}</p>
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="name">Cardholder Name</label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={cardDetails.name}
+              onChange={handleInputChange}
+              placeholder="John Doe"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="number">Card Number</label>
+            <input
+              type="text"
+              id="number"
+              name="number"
+              value={cardDetails.number}
+              onChange={handleInputChange}
+              placeholder="1234 5678 9012 3456"
+              maxLength="19"
+              required
+            />
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="expiry">Expiry Date</label>
+              <input
+                type="text"
+                id="expiry"
+                name="expiry"
+                value={cardDetails.expiry}
+                onChange={handleInputChange}
+                placeholder="MM/YY"
+                maxLength="5"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="cvv">CVV</label>
+              <input
+                type="text"
+                id="cvv"
+                name="cvv"
+                value={cardDetails.cvv}
+                onChange={handleInputChange}
+                placeholder="123"
+                maxLength="3"
+                required
+              />
+            </div>
+          </div>
+
+          <button type="submit" className="pay-button" disabled={loading}>
+            {loading ? (
+              <div className="button-loading">
+                <div className="spinner"></div>
+                Processing...
+              </div>
+            ) : (
+              "Pay Now"
+            )}
+          </button>
+        </form>
       </div>
     </div>
   );
