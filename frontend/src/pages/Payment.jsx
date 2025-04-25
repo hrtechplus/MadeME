@@ -2,9 +2,34 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useApi } from "../context/ApiContext";
 import { useToast } from "../context/ToastContext";
+import {
+  Container,
+  Typography,
+  Box,
+  Paper,
+  TextField,
+  Button,
+  Divider,
+  Grid,
+  FormControl,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  CircularProgress,
+  Alert,
+  Fade,
+  Stack,
+} from "@mui/material";
+import {
+  CreditCard,
+  AccountBalanceWallet,
+  LocalAtm,
+  LockOutlined,
+  CheckCircleOutline,
+} from "@mui/icons-material";
 import "../styles/Payment.css";
 
-const Payment = () => {
+function Payment() {
   const navigate = useNavigate();
   const location = useLocation();
   const { serviceUrls, handleApiCall } = useApi();
@@ -12,13 +37,13 @@ const Payment = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("CARD");
-  const [cardDetails, setCardDetails] = useState({
-    number: "",
-    expiry: "",
-    cvv: "",
-    name: "",
-  });
+  const [paymentMethod, setPaymentMethod] = useState("credit_card");
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
+  const [cvv, setCvv] = useState("");
+  const [cardholderName, setCardholderName] = useState("");
+  const [orderTotal, setOrderTotal] = useState(0);
+  const [processing, setProcessing] = useState(false);
 
   const orderId = location.state?.orderId;
   const amount = location.state?.amount;
@@ -28,365 +53,437 @@ const Payment = () => {
       setError("Invalid order details. Please try again.");
       showToast("Invalid order details", "error");
       navigate("/", { replace: true });
+    } else {
+      setOrderTotal(amount);
     }
   }, [orderId, amount, showToast, navigate]);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setCardDetails((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handlePaymentMethodChange = (method) => {
-    setPaymentMethod(method);
-  };
-
-  const handleCODPayment = async () => {
-    setLoading(true);
+  const handlePayment = async () => {
+    setProcessing(true);
     setError(null);
 
     try {
-      const response = await handleApiCall(
-        fetch(`${serviceUrls.payment}/api/payment/process`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({
-            orderId,
-            amount,
-            paymentMethod: "COD",
-            userId: localStorage.getItem("userId"),
-          }),
-        })
-      );
+      let response;
+
+      if (paymentMethod === "credit_card") {
+        // First get stripe client secret from the payment service
+        const intentResponse = await handleApiCall(
+          fetch(`${serviceUrls.payment}/api/payment/initiate`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify({
+              orderId,
+              amount,
+              userId: localStorage.getItem("userId"),
+              email: cardholderName.replace(/\s/g, "") + "@example.com", // Generate email from name for demo
+            }),
+          })
+        );
+
+        // Process the card payment
+        response = await handleApiCall(
+          fetch(`${serviceUrls.payment}/api/payment/process`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify({
+              orderId,
+              amount,
+              paymentMethod: "CARD",
+              cardDetails: {
+                number: cardNumber,
+                expiry: expiryDate,
+                cvv: cvv,
+                name: cardholderName,
+              },
+            }),
+          })
+        );
+      } else if (paymentMethod === "paypal") {
+        // Create a PayPal order
+        response = await handleApiCall(
+          fetch(`${serviceUrls.payment}/api/payment/paypal/create-order`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify({
+              orderId,
+              amount,
+              userId: localStorage.getItem("userId"),
+            }),
+          })
+        );
+
+        if (
+          response.data &&
+          response.data.success &&
+          response.data.approvalUrl
+        ) {
+          // Redirect to PayPal for payment approval
+          window.location.href = response.data.approvalUrl;
+          return;
+        }
+      } else if (paymentMethod === "cash") {
+        response = await handleApiCall(
+          fetch(`${serviceUrls.payment}/api/payment/process`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify({
+              orderId,
+              amount,
+              paymentMethod: "COD",
+              userId: localStorage.getItem("userId"),
+            }),
+          })
+        );
+      }
 
       if (response.data.success || response.status === 200) {
         setSuccess(true);
-        showToast("Order placed successfully with COD!", "success");
+        showToast("Order placed successfully!", "success");
         setTimeout(() => {
           navigate("/orders", {
             state: {
-              message: "Order placed successfully with Cash on Delivery!",
+              message: "Order placed successfully!",
               orderId: response.data?.paymentId || orderId,
             },
           });
         }, 3000);
       } else {
-        setError(
-          response.data.message ||
-            "Failed to place COD order. Please try again."
-        );
-        showToast(response.data.message || "Failed to place order", "error");
+        setError(response.data.message || "Payment failed. Please try again.");
+        showToast(response.data.message || "Payment failed", "error");
       }
     } catch (err) {
-      setError(err.message || "Error processing COD order. Please try again.");
-      showToast("Error processing order", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePayPalPayment = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Create a PayPal order
-      const response = await handleApiCall(
-        fetch(`${serviceUrls.payment}/api/payment/paypal/create-order`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({
-            orderId,
-            amount,
-            userId: localStorage.getItem("userId"),
-          }),
-        })
-      );
-
-      if (response.data && response.data.success && response.data.approvalUrl) {
-        // Redirect to PayPal for payment approval
-        window.location.href = response.data.approvalUrl;
-      } else {
-        setError("Failed to initiate PayPal payment. Please try again.");
-        showToast("Failed to initiate PayPal payment", "error");
-      }
-    } catch (err) {
-      setError(
-        err.message || "Error initiating PayPal payment. Please try again."
-      );
-      showToast("Error initiating PayPal payment", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCardPayment = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      // First get stripe client secret from the payment service
-      const intentResponse = await handleApiCall(
-        fetch(`${serviceUrls.payment}/api/payment/initiate`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({
-            orderId,
-            amount,
-            userId: localStorage.getItem("userId"),
-            email: cardDetails.name.replace(/\s/g, "") + "@example.com", // Generate email from name for demo
-          }),
-        })
-      );
-
-      // Process the card payment
-      const paymentResponse = await handleApiCall(
-        fetch(`${serviceUrls.payment}/api/payment/process`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({
-            orderId,
-            amount,
-            paymentMethod: "CARD",
-            cardDetails: {
-              ...cardDetails,
-              // In a real app, you would not send raw card details directly
-              // This is just for demonstration purposes
-            },
-          }),
-        })
-      );
-
-      if (paymentResponse.data.success) {
-        // Demo successful payment
-        setSuccess(true);
-        showToast("Card payment successful!", "success");
-
-        setTimeout(() => {
-          navigate("/orders", {
-            state: {
-              message: "Order placed successfully with card payment!",
-              orderId: paymentResponse.data?.paymentId || orderId,
-            },
-          });
-        }, 3000);
-      } else {
-        setError(
-          paymentResponse.data.message || "Payment failed. Please try again."
-        );
-        showToast(paymentResponse.data.message || "Payment failed", "error");
-      }
-    } catch (err) {
-      setError(
-        err.message || "Error processing card payment. Please try again."
-      );
+      setError(err.message || "Error processing payment. Please try again.");
       showToast("Error processing payment", "error");
     } finally {
-      setLoading(false);
+      setProcessing(false);
     }
   };
 
-  if (error) {
+  const paymentMethods = [
+    {
+      id: "credit_card",
+      name: "Credit Card",
+      icon: <CreditCard sx={{ fontSize: 36, color: "#4a90e2" }} />,
+    },
+    {
+      id: "paypal",
+      name: "PayPal",
+      icon: <AccountBalanceWallet sx={{ fontSize: 36, color: "#009cde" }} />,
+    },
+    {
+      id: "cash",
+      name: "Cash on Delivery",
+      icon: <LocalAtm sx={{ fontSize: 36, color: "#38a169" }} />,
+    },
+  ];
+
+  if (loading) {
     return (
-      <div className="payment-container">
-        <div className="error-message">
-          <h2>Error</h2>
-          <p>{error}</p>
-          <button className="retry-button" onClick={() => setError(null)}>
-            Try Again
-          </button>
-        </div>
-      </div>
+      <Container maxWidth="md" sx={{ py: 8, textAlign: "center" }}>
+        <CircularProgress size={60} thickness={4} />
+        <Typography variant="h6" sx={{ mt: 3, color: "text.secondary" }}>
+          Preparing your payment...
+        </Typography>
+      </Container>
     );
   }
 
-  if (success) {
+  if (error) {
     return (
-      <div className="payment-container">
-        <div className="success-message">
-          <h2>Payment Successful!</h2>
-          <p>Your order has been placed successfully.</p>
-          <div className="loading-spinner"></div>
-          <p>Redirecting to orders page...</p>
-        </div>
-      </div>
+      <Container maxWidth="md" sx={{ py: 8 }}>
+        <Paper elevation={1} sx={{ p: 4, borderRadius: 2, bgcolor: "#fff5f5" }}>
+          <Typography color="error" variant="h6" align="center" gutterBottom>
+            Payment Error
+          </Typography>
+          <Typography align="center" color="text.secondary">
+            {error}
+          </Typography>
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => navigate("/cart")}
+            >
+              Return to Cart
+            </Button>
+          </Box>
+        </Paper>
+      </Container>
     );
   }
 
   return (
-    <div className="payment-container">
-      <div className="payment-card">
-        <h2>Payment Method</h2>
-        <p className="order-amount">Total Amount: ${amount?.toFixed(2)}</p>
-
-        <div className="payment-methods">
-          <div
-            className={`payment-method ${
-              paymentMethod === "CARD" ? "selected" : ""
-            }`}
-            onClick={() => handlePaymentMethodChange("CARD")}
+    <Container maxWidth="md" sx={{ py: 6 }}>
+      <Paper
+        elevation={1}
+        sx={{
+          borderRadius: 2,
+          overflow: "hidden",
+        }}
+      >
+        <Box sx={{ p: { xs: 3, sm: 4 } }}>
+          <Typography
+            variant="h4"
+            align="center"
+            gutterBottom
+            sx={{ fontWeight: 600, mb: 3 }}
           >
-            <div className="method-icon card-icon">💳</div>
-            <div className="method-name">Credit/Debit Card</div>
-          </div>
-          <div
-            className={`payment-method ${
-              paymentMethod === "PAYPAL" ? "selected" : ""
-            }`}
-            onClick={() => handlePaymentMethodChange("PAYPAL")}
+            Complete Your Payment
+          </Typography>
+
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              mb: 4,
+            }}
           >
-            <div className="method-icon paypal-icon">
-              <span style={{ color: "#003087" }}>Pay</span>
-              <span style={{ color: "#009cde" }}>Pal</span>
-            </div>
-            <div className="method-name">PayPal</div>
-          </div>
-          <div
-            className={`payment-method ${
-              paymentMethod === "COD" ? "selected" : ""
-            }`}
-            onClick={() => handlePaymentMethodChange("COD")}
-          >
-            <div className="method-icon cod-icon">💵</div>
-            <div className="method-name">Cash on Delivery</div>
-          </div>
-        </div>
-
-        {paymentMethod === "CARD" && (
-          <form onSubmit={handleCardPayment}>
-            <div className="form-group">
-              <label htmlFor="name">Cardholder Name</label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={cardDetails.name}
-                onChange={handleInputChange}
-                placeholder="John Doe"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="number">Card Number</label>
-              <input
-                type="text"
-                id="number"
-                name="number"
-                value={cardDetails.number}
-                onChange={handleInputChange}
-                placeholder="1234 5678 9012 3456"
-                maxLength="19"
-                required
-              />
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="expiry">Expiry Date</label>
-                <input
-                  type="text"
-                  id="expiry"
-                  name="expiry"
-                  value={cardDetails.expiry}
-                  onChange={handleInputChange}
-                  placeholder="MM/YY"
-                  maxLength="5"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="cvv">CVV</label>
-                <input
-                  type="text"
-                  id="cvv"
-                  name="cvv"
-                  value={cardDetails.cvv}
-                  onChange={handleInputChange}
-                  placeholder="123"
-                  maxLength="3"
-                  required
-                />
-              </div>
-            </div>
-
-            <button type="submit" className="pay-button" disabled={loading}>
-              {loading ? (
-                <div className="button-loading">
-                  <div className="spinner"></div>
-                  Processing Card...
-                </div>
-              ) : (
-                "Pay with Card"
-              )}
-            </button>
-          </form>
-        )}
-
-        {paymentMethod === "PAYPAL" && (
-          <div className="paypal-section">
-            <p className="paypal-info">
-              Pay securely using your PayPal account. You will be redirected to
-              PayPal to complete your payment.
-            </p>
-            <button
-              className="pay-button paypal-button"
-              onClick={handlePayPalPayment}
-              disabled={loading}
+            <Paper
+              elevation={0}
+              sx={{
+                py: 2,
+                px: 4,
+                bgcolor: "primary.50",
+                borderRadius: 2,
+                border: "1px solid",
+                borderColor: "primary.100",
+              }}
             >
-              {loading ? (
-                <div className="button-loading">
-                  <div className="spinner"></div>
-                  Processing...
-                </div>
-              ) : (
-                "Pay with PayPal"
-              )}
-            </button>
-          </div>
-        )}
+              <Typography
+                variant="h6"
+                align="center"
+                sx={{ fontWeight: 500, color: "primary.main" }}
+              >
+                Order Total: ${orderTotal.toFixed(2)}
+              </Typography>
+            </Paper>
+          </Box>
 
-        {paymentMethod === "COD" && (
-          <div className="cod-section">
-            <p className="cod-info">
-              Pay with cash when your order is delivered. Our delivery agent
-              will collect the payment.
-            </p>
-            <button
-              className="pay-button cod-button"
-              onClick={handleCODPayment}
-              disabled={loading}
+          <Divider sx={{ my: 4 }} />
+
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 500, mb: 3 }}>
+            Select Payment Method
+          </Typography>
+
+          <FormControl component="fieldset" sx={{ width: "100%", mb: 4 }}>
+            <RadioGroup
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
             >
-              {loading ? (
-                <div className="button-loading">
-                  <div className="spinner"></div>
-                  Processing...
-                </div>
+              <Grid container spacing={2}>
+                {paymentMethods.map((method) => (
+                  <Grid item xs={12} sm={4} key={method.id}>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        border: "2px solid",
+                        borderColor:
+                          paymentMethod === method.id
+                            ? "primary.main"
+                            : "divider",
+                        borderRadius: 2,
+                        p: 3,
+                        textAlign: "center",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        bgcolor:
+                          paymentMethod === method.id
+                            ? "primary.50"
+                            : "background.paper",
+                        "&:hover": {
+                          borderColor:
+                            paymentMethod === method.id
+                              ? "primary.main"
+                              : "primary.200",
+                          bgcolor:
+                            paymentMethod === method.id
+                              ? "primary.50"
+                              : "background.paper",
+                        },
+                      }}
+                      onClick={() => setPaymentMethod(method.id)}
+                    >
+                      <Box sx={{ mb: 2 }}>{method.icon}</Box>
+                      <FormControlLabel
+                        value={method.id}
+                        control={
+                          <Radio
+                            sx={{
+                              "&.Mui-checked": {
+                                color: "primary.main",
+                              },
+                            }}
+                          />
+                        }
+                        label={
+                          <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                            {method.name}
+                          </Typography>
+                        }
+                        sx={{
+                          m: 0,
+                          width: "100%",
+                          justifyContent: "center",
+                        }}
+                      />
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+            </RadioGroup>
+          </FormControl>
+
+          <Fade in={paymentMethod === "credit_card"}>
+            <Box
+              sx={{
+                mb: 4,
+                display: paymentMethod === "credit_card" ? "block" : "none",
+              }}
+            >
+              <Stack spacing={3}>
+                <TextField
+                  label="Card Number"
+                  variant="outlined"
+                  fullWidth
+                  placeholder="1234 5678 9012 3456"
+                  value={cardNumber}
+                  onChange={(e) => setCardNumber(e.target.value)}
+                  InputProps={{
+                    endAdornment: (
+                      <CreditCard color="action" sx={{ opacity: 0.6 }} />
+                    ),
+                  }}
+                />
+
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Expiration Date"
+                      variant="outlined"
+                      fullWidth
+                      placeholder="MM/YY"
+                      value={expiryDate}
+                      onChange={(e) => setExpiryDate(e.target.value)}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="CVV"
+                      variant="outlined"
+                      fullWidth
+                      placeholder="123"
+                      value={cvv}
+                      onChange={(e) => setCvv(e.target.value)}
+                      InputProps={{
+                        endAdornment: (
+                          <LockOutlined color="action" sx={{ opacity: 0.6 }} />
+                        ),
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+
+                <TextField
+                  label="Cardholder Name"
+                  variant="outlined"
+                  fullWidth
+                  placeholder="John Smith"
+                  value={cardholderName}
+                  onChange={(e) => setCardholderName(e.target.value)}
+                />
+              </Stack>
+            </Box>
+          </Fade>
+
+          <Fade in={paymentMethod === "paypal"}>
+            <Box
+              sx={{
+                mb: 4,
+                display: paymentMethod === "paypal" ? "block" : "none",
+              }}
+            >
+              <Alert
+                severity="info"
+                sx={{ mb: 3, borderRadius: 2 }}
+                icon={<CheckCircleOutline />}
+              >
+                You will be redirected to PayPal to complete your payment
+                securely.
+              </Alert>
+            </Box>
+          </Fade>
+
+          <Fade in={paymentMethod === "cash"}>
+            <Box
+              sx={{
+                mb: 4,
+                display: paymentMethod === "cash" ? "block" : "none",
+              }}
+            >
+              <Alert
+                severity="info"
+                sx={{ mb: 3, borderRadius: 2 }}
+                icon={<CheckCircleOutline />}
+              >
+                Pay with cash upon delivery. Have the exact amount ready for our
+                delivery person.
+              </Alert>
+            </Box>
+          </Fade>
+
+          <Divider sx={{ my: 4 }} />
+
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 2,
+              flexWrap: "wrap",
+            }}
+          >
+            <Button
+              variant="outlined"
+              color="inherit"
+              onClick={() => navigate("/checkout")}
+              sx={{ px: 3, color: "text.secondary" }}
+            >
+              Back to Checkout
+            </Button>
+
+            <Button
+              variant="contained"
+              color="primary"
+              size="large"
+              onClick={handlePayment}
+              disabled={processing}
+              sx={{ px: 5, py: 1.5 }}
+            >
+              {processing ? (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <CircularProgress size={20} color="inherit" />
+                  <span>Processing...</span>
+                </Box>
               ) : (
-                "Place Order with COD"
+                `Pay ${orderTotal ? `$${orderTotal.toFixed(2)}` : ""}`
               )}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+            </Button>
+          </Box>
+        </Box>
+      </Paper>
+    </Container>
   );
-};
+}
 
 export default Payment;

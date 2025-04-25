@@ -1,14 +1,14 @@
-import { useEffect, useContext, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ApiContext } from "../context/ApiContext";
-import { ToastContext } from "../context/ToastContext";
+import { useApi } from "../context/ApiContext";
+import { useToast } from "../context/ToastContext";
 import "../styles/Payment.css";
 
 const PaymentSuccess = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { paymentServiceUrl } = useContext(ApiContext);
-  const { showToast } = useContext(ToastContext);
+  const { serviceUrls } = useApi();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -25,7 +25,7 @@ const PaymentSuccess = () => {
         }
 
         const response = await fetch(
-          `${paymentServiceUrl}/api/payments/paypal/capture`,
+          `${serviceUrls.payment}/api/payments/paypal/capture`,
           {
             method: "POST",
             headers: {
@@ -65,7 +65,7 @@ const PaymentSuccess = () => {
     };
 
     capturePayment();
-  }, [location, navigate, paymentServiceUrl, showToast]);
+  }, [location, navigate, serviceUrls, showToast]);
 
   const handleReturn = () => {
     navigate("/order-history");

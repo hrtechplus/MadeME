@@ -1,17 +1,39 @@
 :root {
-  font-family: 'Inter', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: "Inter", "Roboto", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
   line-height: 1.6;
   font-weight: 400;
   font-size: 16px;
 
   color-scheme: light dark;
-  color: #213547;
-  background-color: #f8f9fa;
+  color: #1e293b;
+  background-color: #f8fafc;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Spacing system */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 5rem;
+
+  /* Color system */
+  --color-primary: #2563eb;
+  --color-primary-light: #3b82f6;
+  --color-primary-dark: #1d4ed8;
+  --color-secondary: #e11d48;
+  --color-secondary-light: #f43f5e;
+  --color-secondary-dark: #be123c;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
 }
 
 * {
@@ -22,43 +44,68 @@
 
 a {
   font-weight: 500;
-  color: #1976d2;
+  color: var(--color-primary);
   text-decoration: none;
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, text-decoration 0.2s ease;
 }
 
 a:hover {
-  color: #0056b3;
+  color: var(--color-primary-dark);
   text-decoration: underline;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #f8f9fa;
+  background-color: #f8fafc;
+  color: #1e293b;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   line-height: 1.2;
   margin-bottom: 0.5em;
   font-weight: 600;
-  color: #333;
+  color: #1e293b;
 }
 
 h1 {
   font-size: 2.5rem;
+  letter-spacing: -0.02em;
 }
 
 h2 {
   font-size: 2rem;
+  letter-spacing: -0.01em;
 }
 
 h3 {
   font-size: 1.75rem;
 }
 
+h4 {
+  font-size: 1.5rem;
+}
+
+h5 {
+  font-size: 1.25rem;
+}
+
+h6 {
+  font-size: 1rem;
+}
+
 p {
   margin-bottom: 1rem;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
 }
 
 button {
@@ -68,20 +115,27 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1976d2;
+  background-color: var(--color-primary);
   color: white;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.3s, transform 0.2s, border-color 0.3s,
+    box-shadow 0.3s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 button:hover {
-  background-color: #0056b3;
-  border-color: transparent;
+  background-color: var(--color-primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+button:active {
+  transform: translateY(0);
 }
 
 button:focus,
 button:focus-visible {
-  outline: 2px solid #1976d2;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -89,20 +143,115 @@ button:disabled {
   background-color: #cccccc;
   color: #666666;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
-/* Light theme adjustments */
+/* Clean, subtle scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Utility classes */
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+/* Responsive adjustments */
 @media (prefers-color-scheme: dark) {
   :root {
-    color: rgba(255, 255, 255, 0.87);
-    background-color: #242424;
+    color: #f1f5f9;
+    background-color: #1e293b;
   }
-  
-  h1, h2, h3, h4, h5, h6 {
-    color: #f8f9fa;
+
+  body {
+    background-color: #0f172a;
+    color: #f1f5f9;
   }
-  
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: #f8fafc;
+  }
+
   a:hover {
-    color: #90caf9;
+    color: var(--color-primary-light);
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #334155;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #64748b;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    font-size: 14px;
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+
+  h2 {
+    font-size: 1.75rem;
+  }
+
+  h3 {
+    font-size: 1.5rem;
   }
 }

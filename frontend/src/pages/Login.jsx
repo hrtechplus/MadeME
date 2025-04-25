@@ -1,297 +1,316 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import useAuth from "../services/authService";
 import {
   Container,
-  Paper,
-  TextField,
-  Button,
   Typography,
   Box,
-  Alert,
-  Tabs,
-  Tab,
+  TextField,
+  Button,
+  Paper,
   Divider,
-  Avatar,
-  Grid,
+  InputAdornment,
+  IconButton,
+  Alert,
+  CircularProgress,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
-import { Person, AdminPanelSettings, LockOutlined } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
-import useAuth from "../services/authService";
-import { styled } from "@mui/material/styles";
-
-// Custom styling for the login tabs
-const LoginTab = styled(Tab)(({ theme }) => ({
-  fontWeight: 600,
-  fontSize: "1rem",
-  textTransform: "none",
-  minHeight: 60,
-}));
-
-function TabPanel(props) {
-  const { children, value, index, ...other } = props;
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`login-tabpanel-${index}`}
-      aria-labelledby={`login-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-}
+import {
+  Email,
+  Lock,
+  Visibility,
+  VisibilityOff,
+  Google,
+  Facebook,
+  Apple,
+} from "@mui/icons-material";
 
 function Login() {
-  const [tabValue, setTabValue] = useState(0);
-  const [userEmail, setUserEmail] = useState("");
-  const [userPassword, setUserPassword] = useState("");
-  const [adminEmail, setAdminEmail] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-    setError("");
-  };
-
-  const handleUserLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError("");
+    setLoading(true);
 
     try {
-      await login(userEmail, userPassword);
+      await login(email, password);
+      // Redirect to home page after successful login
       navigate("/");
     } catch (error) {
-      setError(error.message);
+      console.error("Login error:", error);
+      setError(error.message || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAdminLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  // Rest of the code remains the same
+  const handleSampleLogin = async () => {
+    setEmail("user@example.com");
+    setPassword("password123");
     setError("");
+    setLoading(true);
 
-    try {
-      const result = await login(adminEmail, adminPassword);
-      if (result && result.role === "admin") {
-        navigate("/admin/dashboard");
-      } else {
-        setError("You don't have admin privileges");
-      }
-    } catch (error) {
-      setError(error.message);
-    } finally {
+    // Simulate API call delay
+    setTimeout(() => {
+      localStorage.setItem("token", "sample-token");
+      localStorage.setItem("userId", "sample-user-id");
       setLoading(false);
-    }
+      navigate("/");
+    }, 1500);
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box
+    <Container maxWidth="sm" sx={{ py: { xs: 6, md: 10 } }}>
+      <Paper
+        elevation={2}
         sx={{
-          mt: 8,
-          mb: 8,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
+          borderRadius: 3,
+          overflow: "hidden",
+          boxShadow: "0 8px 40px rgba(0,0,0,0.12)",
         }}
       >
-        <Paper
-          elevation={3}
+        <Box
           sx={{
-            p: 0,
-            width: "100%",
-            borderRadius: 2,
-            overflow: "hidden",
+            p: 4,
+            pb: 3,
+            background: "linear-gradient(120deg, #2563eb 0%, #3b82f6 100%)",
+            color: "white",
+            textAlign: "center",
           }}
         >
-          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-            <Tabs
-              value={tabValue}
-              onChange={handleTabChange}
-              variant="fullWidth"
-              textColor="primary"
-              indicatorColor="primary"
+          <Typography
+            variant="h4"
+            component="h1"
+            gutterBottom
+            sx={{ fontWeight: 700 }}
+          >
+            Welcome Back
+          </Typography>
+          <Typography variant="body1">
+            Sign in to continue to your account
+          </Typography>
+        </Box>
+
+        <Box sx={{ p: { xs: 3, sm: 4 } }}>
+          {error && (
+            <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            <TextField
+              label="Email Address"
+              type="email"
+              variant="outlined"
+              fullWidth
+              margin="normal"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Email color="action" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 3 }}
+            />
+
+            <TextField
+              label="Password"
+              type={showPassword ? "text" : "password"}
+              variant="outlined"
+              fullWidth
+              margin="normal"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Lock color="action" />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={() => setShowPassword(!showPassword)}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 1 }}
+            />
+
+            <Box sx={{ textAlign: "right", mb: 3 }}>
+              <Link to="/forgot-password" style={{ textDecoration: "none" }}>
+                <Typography
+                  variant="body2"
+                  color="primary"
+                  sx={{
+                    fontWeight: 500,
+                    "&:hover": {
+                      textDecoration: "underline",
+                    },
+                  }}
+                >
+                  Forgot password?
+                </Typography>
+              </Link>
+            </Box>
+
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              fullWidth
+              disabled={loading}
+              size="large"
+              sx={{
+                py: 1.5,
+                fontWeight: 600,
+                position: "relative",
+                mb: 3,
+                borderRadius: 2,
+              }}
             >
-              <LoginTab
-                label="User Login"
-                icon={<Person />}
-                iconPosition="start"
-              />
-              <LoginTab
-                label="Admin Login"
-                icon={<AdminPanelSettings />}
-                iconPosition="start"
-              />
-            </Tabs>
+              {loading ? (
+                <CircularProgress
+                  size={24}
+                  sx={{
+                    color: "white",
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    marginTop: "-12px",
+                    marginLeft: "-12px",
+                  }}
+                />
+              ) : (
+                "Sign In"
+              )}
+            </Button>
+          </form>
+
+          <Button
+            variant="outlined"
+            color="primary"
+            fullWidth
+            onClick={handleSampleLogin}
+            disabled={loading}
+            sx={{ mb: 3, py: 1.2, borderRadius: 2 }}
+          >
+            Demo Login (No Sign Up Required)
+          </Button>
+
+          <Divider sx={{ my: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ px: 1 }}>
+              OR CONTINUE WITH
+            </Typography>
+          </Divider>
+
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 2,
+              flexWrap: "wrap",
+              mb: 4,
+            }}
+          >
+            <Button
+              variant="outlined"
+              color="inherit"
+              startIcon={<Google />}
+              sx={{
+                borderRadius: 2,
+                px: 3,
+                py: 1,
+                minWidth: isMobile ? "100%" : "120px",
+                borderColor: "#dddddd",
+                color: "#5f6368",
+                "&:hover": {
+                  borderColor: "#cccccc",
+                  backgroundColor: "#f5f5f5",
+                },
+              }}
+            >
+              Google
+            </Button>
+            <Button
+              variant="outlined"
+              color="inherit"
+              startIcon={<Facebook />}
+              sx={{
+                borderRadius: 2,
+                px: 3,
+                py: 1,
+                minWidth: isMobile ? "100%" : "120px",
+                borderColor: "#1877f2",
+                color: "#1877f2",
+                "&:hover": {
+                  borderColor: "#166fe5",
+                  backgroundColor: "#f0f7ff",
+                },
+              }}
+            >
+              Facebook
+            </Button>
+            <Button
+              variant="outlined"
+              color="inherit"
+              startIcon={<Apple />}
+              sx={{
+                borderRadius: 2,
+                px: 3,
+                py: 1,
+                minWidth: isMobile ? "100%" : "120px",
+                borderColor: "#333333",
+                color: "#333333",
+                "&:hover": {
+                  borderColor: "#111111",
+                  backgroundColor: "#f5f5f5",
+                },
+              }}
+            >
+              Apple
+            </Button>
           </Box>
 
-          {/* User Login Panel */}
-          <TabPanel value={tabValue} index={0}>
-            <Box sx={{ px: 4, pb: 4 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  mb: 3,
+          <Box sx={{ textAlign: "center" }}>
+            <Typography variant="body2" color="text.secondary">
+              Don't have an account?{" "}
+              <Link
+                to="/register"
+                style={{
+                  textDecoration: "none",
+                  fontWeight: 500,
+                  color: theme.palette.primary.main,
                 }}
               >
-                <Avatar sx={{ m: 1, bgcolor: "primary.main" }}>
-                  <LockOutlined />
-                </Avatar>
-                <Typography component="h1" variant="h5">
-                  Customer Login
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mt: 1, textAlign: "center" }}
-                >
-                  Log in to order food and track your deliveries
-                </Typography>
-              </Box>
-
-              {error && tabValue === 0 && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  {error}
-                </Alert>
-              )}
-
-              <form onSubmit={handleUserLogin}>
-                <TextField
-                  label="Email"
-                  type="email"
-                  fullWidth
-                  margin="normal"
-                  value={userEmail}
-                  onChange={(e) => setUserEmail(e.target.value)}
-                  required
-                  placeholder="test@example.com"
-                />
-                <TextField
-                  label="Password"
-                  type="password"
-                  fullWidth
-                  margin="normal"
-                  value={userPassword}
-                  onChange={(e) => setUserPassword(e.target.value)}
-                  required
-                  placeholder="password123"
-                />
-                <Button
-                  type="submit"
-                  variant="contained"
-                  fullWidth
-                  sx={{ mt: 3, mb: 2, py: 1.5, fontWeight: "bold" }}
-                  disabled={loading}
-                >
-                  {loading ? "Logging in..." : "Login"}
-                </Button>
-
-                <Grid container spacing={1}>
-                  <Grid item xs>
-                    <Typography variant="body2" color="text.secondary">
-                      Demo User: test@example.com
-                    </Typography>
-                  </Grid>
-                  <Grid item>
-                    <Typography variant="body2" color="text.secondary">
-                      Password: password123
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </form>
-            </Box>
-          </TabPanel>
-
-          {/* Admin Login Panel */}
-          <TabPanel value={tabValue} index={1}>
-            <Box sx={{ px: 4, pb: 4 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  mb: 3,
-                }}
-              >
-                <Avatar sx={{ m: 1, bgcolor: "secondary.main" }}>
-                  <AdminPanelSettings />
-                </Avatar>
-                <Typography component="h1" variant="h5">
-                  Administrator Login
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mt: 1, textAlign: "center" }}
-                >
-                  Log in to access the administration dashboard
-                </Typography>
-              </Box>
-
-              {error && tabValue === 1 && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  {error}
-                </Alert>
-              )}
-
-              <form onSubmit={handleAdminLogin}>
-                <TextField
-                  label="Admin Email"
-                  type="email"
-                  fullWidth
-                  margin="normal"
-                  value={adminEmail}
-                  onChange={(e) => setAdminEmail(e.target.value)}
-                  required
-                  placeholder="admin@mademe.com"
-                />
-                <TextField
-                  label="Password"
-                  type="password"
-                  fullWidth
-                  margin="normal"
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  required
-                  placeholder="admin123"
-                />
-                <Button
-                  type="submit"
-                  variant="contained"
-                  fullWidth
-                  color="secondary"
-                  sx={{ mt: 3, mb: 2, py: 1.5, fontWeight: "bold" }}
-                  disabled={loading}
-                >
-                  {loading ? "Logging in..." : "Login as Administrator"}
-                </Button>
-
-                <Grid container spacing={1}>
-                  <Grid item xs>
-                    <Typography variant="body2" color="text.secondary">
-                      Demo Admin: admin@mademe.com
-                    </Typography>
-                  </Grid>
-                  <Grid item>
-                    <Typography variant="body2" color="text.secondary">
-                      Password: admin123
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </form>
-            </Box>
-          </TabPanel>
-        </Paper>
-      </Box>
+                Sign Up
+              </Link>
+            </Typography>
+          </Box>
+        </Box>
+      </Paper>
     </Container>
   );
 }

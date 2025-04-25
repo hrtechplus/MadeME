@@ -16,6 +16,11 @@ const paymentClient = axios.create({
   timeout: 5000,
 });
 
+const restaurantClient = axios.create({
+  baseURL: "http://localhost:5005/api",
+  timeout: 5000,
+});
+
 // Add request interceptor to add auth token
 const addAuthToken = (config) => {
   const token = localStorage.getItem("token");
@@ -48,10 +53,12 @@ const handleError = (error) => {
 cartClient.interceptors.request.use(addAuthToken);
 orderClient.interceptors.request.use(addAuthToken);
 paymentClient.interceptors.request.use(addAuthToken);
+restaurantClient.interceptors.request.use(addAuthToken);
 
 cartClient.interceptors.response.use((response) => response, handleError);
 orderClient.interceptors.response.use((response) => response, handleError);
 paymentClient.interceptors.response.use((response) => response, handleError);
+restaurantClient.interceptors.response.use((response) => response, handleError);
 
 // Cart API functions
 export const cartApi = {
@@ -84,9 +91,43 @@ export const paymentApi = {
     paymentClient.get(`/payments/order/${orderId}`),
 };
 
+// Restaurant API functions
+export const restaurantApi = {
+  // Restaurant endpoints
+  getAllRestaurants: (filters = {}) =>
+    restaurantClient.get("/restaurants", { params: filters }),
+  getRestaurantById: (restaurantId) =>
+    restaurantClient.get(`/restaurants/${restaurantId}`),
+  createRestaurant: (restaurantData) =>
+    restaurantClient.post("/restaurants", restaurantData),
+  updateRestaurant: (restaurantId, restaurantData) =>
+    restaurantClient.put(`/restaurants/${restaurantId}`, restaurantData),
+  deleteRestaurant: (restaurantId) =>
+    restaurantClient.delete(`/restaurants/${restaurantId}`),
+  getMyRestaurants: () => restaurantClient.get("/restaurants/owner/me"),
+
+  // Menu endpoints
+  getMenuItems: (restaurantId, category) =>
+    restaurantClient.get(`/restaurants/${restaurantId}/menu`, {
+      params: { category },
+    }),
+  getMenuItem: (restaurantId, menuItemId) =>
+    restaurantClient.get(`/restaurants/${restaurantId}/menu/${menuItemId}`),
+  addMenuItem: (restaurantId, menuItemData) =>
+    restaurantClient.post(`/restaurants/${restaurantId}/menu`, menuItemData),
+  updateMenuItem: (restaurantId, menuItemId, menuItemData) =>
+    restaurantClient.put(
+      `/restaurants/${restaurantId}/menu/${menuItemId}`,
+      menuItemData
+    ),
+  deleteMenuItem: (restaurantId, menuItemId) =>
+    restaurantClient.delete(`/restaurants/${restaurantId}/menu/${menuItemId}`),
+};
+
 // Export all APIs
 export default {
   cart: cartApi,
   order: orderApi,
   payment: paymentApi,
+  restaurant: restaurantApi,
 };

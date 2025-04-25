@@ -1,10 +1,10 @@
-import { useEffect, useContext } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ToastContext } from "../context/ToastContext";
+import { useToast } from "../context/ToastContext";
 import "../styles/Payment.css";
 
 const PaymentCancel = () => {
-  const { showToast } = useContext(ToastContext);
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
