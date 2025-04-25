@@ -7,13 +7,13 @@ start /b mongod || echo MongoDB might already be running
 
 REM Start Backend Services with proper environment variables
 echo Starting Order Service...
-start cmd /k "cd order-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& npm start"
+start cmd /k "cd order-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& set PORT=5001&& npm start"
 
 echo Starting Payment Service...
-start cmd /k "cd payment-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& npm start"
+start cmd /k "cd payment-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& set PORT=5003&& npm start"
 
 echo Starting Cart Service...
-start cmd /k "cd cart-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& npm start"
+start cmd /k "cd cart-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& set PORT=5002&& npm start"
 
 REM Start Frontend
 echo Starting Frontend...
@@ -23,4 +23,4 @@ echo All services started successfully!
 echo Frontend: http://localhost:5173
 echo Order Service: http://localhost:5001
 echo Payment Service: http://localhost:5003
-echo Cart Service: http://localhost:5003
+echo Cart Service: http://localhost:5002

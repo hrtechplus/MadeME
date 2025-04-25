@@ -65,7 +65,8 @@ mongoose
     process.exit(1);
   });
 
-const PORT = process.env.PORT || 5003;
+// Use a different port to avoid conflicts with other services
+const PORT = process.env.PORT || 5002;
 app.listen(PORT, () => {
   console.log(`Cart service running on port ${PORT}`);
 });

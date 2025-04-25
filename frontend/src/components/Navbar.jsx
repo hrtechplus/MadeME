@@ -20,17 +20,20 @@ import {
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { sampleUser } from "../services/sampleUser";
 
 function Navbar() {
   const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [cartItems, setCartItems] = useState(0);
   const [anchorEl, setAnchorEl] = useState(null);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    setIsAuthenticated(!!token);
+    // Ensure user is always authenticated with sample credentials
+    if (!localStorage.getItem("token")) {
+      localStorage.setItem("token", sampleUser.token);
+      localStorage.setItem("userId", sampleUser.userId);
+    }
 
     // Handle scroll effect
     const handleScroll = () => {
@@ -48,12 +51,10 @@ function Navbar() {
     setAnchorEl(null);
   };
 
+  // Modified to avoid full logout - just closes menu
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userId");
-    setIsAuthenticated(false);
     handleMenuClose();
-    navigate("/login");
+    navigate("/");
   };
 
   return (
@@ -96,77 +97,50 @@ function Navbar() {
           >
             Restaurants
           </Button>
-          {isAuthenticated ? (
-            <>
-              <IconButton
-                color={scrolled ? "primary" : "inherit"}
-                onClick={() => navigate("/cart")}
-              >
-                <Badge badgeContent={cartItems} color="error">
-                  <ShoppingCart />
-                </Badge>
-              </IconButton>
 
-              <IconButton
-                color={scrolled ? "primary" : "inherit"}
-                onClick={handleMenuOpen}
-              >
-                <Avatar sx={{ width: 32, height: 32 }} />
-              </IconButton>
+          {/* Always show authenticated user UI */}
+          <IconButton
+            color={scrolled ? "primary" : "inherit"}
+            onClick={() => navigate("/cart")}
+          >
+            <Badge badgeContent={cartItems} color="error">
+              <ShoppingCart />
+            </Badge>
+          </IconButton>
 
-              <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={handleMenuClose}
-                PaperProps={{
-                  sx: {
-                    mt: 1.5,
-                    minWidth: 200,
-                    borderRadius: 2,
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-                  },
-                }}
-              >
-                <MenuItem onClick={() => navigate("/orders")}>
-                  <History sx={{ mr: 1 }} /> Order History
-                </MenuItem>
-                <Divider />
-                <MenuItem onClick={handleLogout}>
-                  <Logout sx={{ mr: 1 }} /> Logout
-                </MenuItem>
-              </Menu>
-            </>
-          ) : (
-            <>
-              <Button
-                color={scrolled ? "primary" : "inherit"}
-                onClick={() => navigate("/login")}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: "bold",
-                }}
-              >
-                Login
-              </Button>
-              <Button
-                variant="contained"
-                onClick={() => navigate("/register")}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: "bold",
-                  borderRadius: 2,
-                  background:
-                    "linear-gradient(45deg, #1976d2 30%, #2196f3 90%)",
-                  "&:hover": {
-                    background:
-                      "linear-gradient(45deg, #1565c0 30%, #1e88e5 90%)",
-                  },
-                }}
-              >
-                Sign Up
-              </Button>
-            </>
-          )}
+          <IconButton
+            color={scrolled ? "primary" : "inherit"}
+            onClick={handleMenuOpen}
+          >
+            <Avatar sx={{ width: 32, height: 32 }} />
+          </IconButton>
+
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleMenuClose}
+            PaperProps={{
+              sx: {
+                mt: 1.5,
+                minWidth: 200,
+                borderRadius: 2,
+                boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+              },
+            }}
+          >
+            <MenuItem
+              onClick={() => {
+                handleMenuClose();
+                navigate("/orders");
+              }}
+            >
+              <History sx={{ mr: 1 }} /> Order History
+            </MenuItem>
+            <Divider />
+            <MenuItem onClick={handleLogout}>
+              <Logout sx={{ mr: 1 }} /> Home
+            </MenuItem>
+          </Menu>
         </Box>
       </Toolbar>
     </AppBar>

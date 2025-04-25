@@ -110,11 +110,28 @@ exports.removeItem = async (req, res) => {
 exports.clearCart = async (req, res) => {
   try {
     const { userId } = req.params;
-    await Cart.findOneAndDelete({ userId });
-    res.status(200).json({ message: "Cart cleared successfully" });
+
+    // Check if userId is provided
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    // Use findOneAndDelete with better error handling
+    const result = await Cart.findOneAndDelete({ userId });
+
+    // If no cart was found, still return success (idempotent operation)
+    if (!result) {
+      console.log(
+        `No cart found for user ${userId}, but returning success anyway`
+      );
+    }
+
+    return res.status(200).json({ message: "Cart cleared successfully" });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error clearing cart", error: error.message });
+    console.error("Error in clearCart:", error);
+    return res.status(500).json({
+      message: "Error clearing cart",
+      error: error.message || "Unknown database error",
+    });
   }
 };

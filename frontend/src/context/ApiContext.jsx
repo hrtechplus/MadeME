@@ -6,7 +6,7 @@ export function ApiProvider({ children }) {
   // Default service URLs - can be overridden by environment variables
   const [serviceUrls] = useState({
     auth: import.meta.env.VITE_AUTH_SERVICE_URL || "http://localhost:5000",
-    cart: import.meta.env.VITE_CART_SERVICE_URL || "http://localhost:5003",
+    cart: import.meta.env.VITE_CART_SERVICE_URL || "http://localhost:5002",
     order: import.meta.env.VITE_ORDER_SERVICE_URL || "http://localhost:5001",
     payment:
       import.meta.env.VITE_PAYMENT_SERVICE_URL || "http://localhost:5003",

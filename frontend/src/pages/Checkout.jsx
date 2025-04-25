@@ -29,7 +29,7 @@ const Checkout = () => {
         try {
           const userId = localStorage.getItem("userId") || "test-user";
           const response = await handleApiCall(
-            fetch(`http://localhost:5003/api/cart/${userId}`)
+            fetch(`http://localhost:5002/api/cart/${userId}`)
           );
           setCart(response.data?.items || []);
           setLoading(false);
@@ -72,57 +72,79 @@ const Checkout = () => {
 
     try {
       setLoading(true);
+      const userId = localStorage.getItem("userId") || "user123"; // Using default userId if none exists
+
       // Create order
       const orderData = {
-        userId: localStorage.getItem("userId") || "test-user",
+        userId: userId,
         restaurantId: cart[0]?.restaurantId || "default-restaurant",
         items: cart.map((item) => ({
-          itemId: item._id,
+          itemId: item._id || item.itemId,
           name: item.name,
           price: item.price,
           quantity: item.quantity,
         })),
         deliveryAddress,
-        total: cart.reduce(
-          (total, item) => total + item.price * item.quantity,
-          0
-        ),
+        total: getTotalPrice(),
         status: "PENDING",
       };
 
-      // Use hardcoded URLs for now to ensure correct ports are used
-      const orderResponse = await handleApiCall(
-        fetch("http://localhost:5001/api/order", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(orderData),
-        })
-      );
+      console.log("Creating order with data:", orderData);
 
-      // Clear cart - using hardcoded URL to avoid port confusion
-      await handleApiCall(
-        fetch(
-          `http://localhost:5003/api/cart/${
-            localStorage.getItem("userId") || "test-user"
-          }`,
+      // Create order with proper error handling
+      const orderResponse = await fetch("http://localhost:5001/api/order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      if (!orderResponse.ok) {
+        const errorData = await orderResponse.json();
+        throw new Error(
+          errorData.message ||
+            `Error ${orderResponse.status}: Failed to create order`
+        );
+      }
+
+      const orderResult = await orderResponse.json();
+      console.log("Order created successfully:", orderResult);
+
+      // Clear cart after successful order creation with better error handling
+      try {
+        const deleteCartResponse = await fetch(
+          `http://localhost:5002/api/cart/${userId}`,
           {
             method: "DELETE",
           }
-        )
-      );
+        );
+
+        if (!deleteCartResponse.ok) {
+          console.warn(
+            "Warning: Failed to clear cart, but order was created successfully."
+          );
+          // Don't throw error here, just log it and continue
+        } else {
+          console.log("Cart cleared successfully");
+        }
+      } catch (cartError) {
+        // Log error but don't fail the whole checkout process
+        console.error("Error clearing cart:", cartError);
+        // We still want to continue to payment even if cart clearing fails
+      }
 
       showToast("Order created successfully", "success");
+
       // Navigate to payment page with order details
       navigate("/payment", {
         state: {
-          orderId: orderResponse.data._id,
-          amount: orderResponse.data.total,
+          orderId: orderResult._id,
+          amount: orderResult.total,
         },
       });
     } catch (err) {
-      setError("Failed to process checkout. Please try again.");
+      setError(`Failed to process checkout: ${err.message}`);
       showToast("Failed to process checkout", "error");
       console.error("Checkout error:", err);
     } finally {
