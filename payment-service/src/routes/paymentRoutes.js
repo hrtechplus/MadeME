@@ -54,7 +54,7 @@ router.post(
   paymentController.capturePayPalPayment
 );
 
-// Handle Stripe webhook
+// Handle Stripe webhook - use raw body parsing only for this route
 router.post(
   "/webhook",
   express.raw({ type: "application/json" }),

@@ -193,43 +193,57 @@ function RestaurantDetail() {
         return;
       }
 
+      // Create a properly formatted cart item
+      const cartItemData = {
+        itemId: item.id,
+        name: item.title,
+        price: item.price,
+        quantity: 1,
+        restaurantId: restaurant.id || "default-restaurant-id",
+      };
+
+      console.log("Adding to cart:", cartItemData);
+
       // Try to add to API first
       try {
-        await api.post("/cart/add", {
-          userId,
-          itemId: item.id,
-          quantity: 1,
-          price: item.price,
-          name: item.title,
+        await api.post("/cart/add", cartItemData);
+
+        // Update local cart state
+        setCart((prev) => ({
+          ...prev,
+          [item.id]: {
+            itemId: item.id,
+            quantity: 1,
+            price: item.price,
+            name: item.title,
+          },
+        }));
+
+        setSnackbar({
+          open: true,
+          message: "Item added to cart!",
+          severity: "success",
         });
       } catch (error) {
-        // If API fails, use local storage
+        console.error("Error adding to cart:", error);
+        // If API fails, use local storage as fallback
         const localCart = localStorage.getItem(`cart_${userId}`);
         const cartItems = localCart ? JSON.parse(localCart) : {};
-        cartItems[item.id] = {
-          itemId: item.id,
-          quantity: 1,
-          price: item.price,
-          name: item.title,
-        };
+        cartItems[item.id] = cartItemData;
         localStorage.setItem(`cart_${userId}`, JSON.stringify(cartItems));
+
+        // Still update UI to provide feedback
+        setCart((prev) => ({
+          ...prev,
+          [item.id]: cartItemData,
+        }));
+
+        setSnackbar({
+          open: true,
+          message: "Item added to cart (using local storage)!",
+          severity: "success",
+        });
       }
-
-      setCart((prev) => ({
-        ...prev,
-        [item.id]: {
-          itemId: item.id,
-          quantity: 1,
-          price: item.price,
-          name: item.title,
-        },
-      }));
-
-      setSnackbar({
-        open: true,
-        message: "Item added to cart!",
-        severity: "success",
-      });
     } catch (error) {
       console.warn("Error adding to cart:", error);
       setSnackbar({

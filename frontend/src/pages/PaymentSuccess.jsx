@@ -18,14 +18,15 @@ const PaymentSuccess = () => {
         const queryParams = new URLSearchParams(location.search);
         const paymentId = queryParams.get("paymentId");
         const PayerID = queryParams.get("PayerID");
+        const paypalOrderId = queryParams.get("token"); // PayPal returns the order ID as 'token'
         const orderId = sessionStorage.getItem("currentOrderId");
 
-        if (!paymentId || !PayerID || !orderId) {
+        if (!paypalOrderId) {
           throw new Error("Missing required payment parameters");
         }
 
         const response = await fetch(
-          `${serviceUrls.payment}/api/payments/paypal/capture`,
+          `${serviceUrls.payment}/api/payment/paypal/capture`,
           {
             method: "POST",
             headers: {
@@ -33,7 +34,7 @@ const PaymentSuccess = () => {
               Authorization: `Bearer ${localStorage.getItem("token")}`,
             },
             body: JSON.stringify({
-              paymentId,
+              paypalOrderId,
               PayerID,
               orderId,
             }),

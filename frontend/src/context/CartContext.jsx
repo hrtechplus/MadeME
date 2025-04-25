@@ -55,16 +55,14 @@ export const CartProvider = ({ children }) => {
         return false;
       }
 
-      // Make itemId unique per user by creating a user-scoped identifier
-      // This ensures items are unique per user even when product IDs are the same
-      const userScopedItemId = item.itemId
-        ? `${userId}-${item.itemId.toString()}`
-        : `${userId}-item-${Date.now()}`;
+      // Create a consistent itemId format that doesn't include userId prefix
+      // The backend will handle user isolation
+      const normalizedItemId = item.itemId.toString();
 
       // Create the data object with all required fields
       const cartItemData = {
         userId,
-        itemId: userScopedItemId, // Use the user-scoped itemId
+        itemId: normalizedItemId,
         name: item.name,
         price: item.price,
         quantity: item.quantity,
@@ -106,14 +104,14 @@ export const CartProvider = ({ children }) => {
 
       console.log(`Updating quantity of item ${itemId} to ${newQuantity}`);
 
-      // Check if itemId already includes the user scope prefix
-      const formattedItemId = itemId.startsWith(`${userId}-`)
-        ? itemId
-        : `${userId}-${itemId}`;
+      // Make sure we're using the raw itemId without any prefixes
+      const normalizedItemId = itemId.includes("-")
+        ? itemId.split("-").pop()
+        : itemId;
 
       // Update in database
       const result = await handleApiCall(
-        fetch(`${serviceUrls.cart}/api/cart/${userId}/${formattedItemId}`, {
+        fetch(`${serviceUrls.cart}/api/cart/${userId}/${normalizedItemId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -138,14 +136,14 @@ export const CartProvider = ({ children }) => {
     try {
       console.log("Removing item from cart:", itemId);
 
-      // Check if itemId already includes the user scope prefix
-      const formattedItemId = itemId.startsWith(`${userId}-`)
-        ? itemId
-        : `${userId}-${itemId}`;
+      // Make sure we're using the raw itemId without any prefixes
+      const normalizedItemId = itemId.includes("-")
+        ? itemId.split("-").pop()
+        : itemId;
 
       // Remove from database
       const result = await handleApiCall(
-        fetch(`${serviceUrls.cart}/api/cart/${userId}/${formattedItemId}`, {
+        fetch(`${serviceUrls.cart}/api/cart/${userId}/${normalizedItemId}`, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,

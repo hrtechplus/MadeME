@@ -7,18 +7,30 @@ const logger = require("../utils/logger");
 
 // PayPal client setup
 function getPayPalClient() {
-  const clientId = process.env.PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  try {
+    const clientId = process.env.PAYPAL_CLIENT_ID;
+    const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
 
-  // Use the sandbox environment for development
-  const environment = new paypal.core.SandboxEnvironment(
-    clientId,
-    clientSecret
-  );
-  // Use the live environment for production
-  // const environment = new paypal.core.LiveEnvironment(clientId, clientSecret);
+    if (!clientId || !clientSecret) {
+      logger.error("Missing PayPal credentials in environment variables");
+      throw new Error("PayPal credentials are missing");
+    }
 
-  return new paypal.core.PayPalHttpClient(environment);
+    logger.info("Setting up PayPal client with provided credentials");
+
+    // Use the sandbox environment for development
+    const environment = new paypal.core.SandboxEnvironment(
+      clientId,
+      clientSecret
+    );
+    // Use the live environment for production
+    // const environment = new paypal.core.LiveEnvironment(clientId, clientSecret);
+
+    return new paypal.core.PayPalHttpClient(environment);
+  } catch (error) {
+    logger.error("Error creating PayPal client:", error);
+    throw error;
+  }
 }
 
 // Create payment intent for Stripe
@@ -294,9 +306,9 @@ exports.processPayment = async (req, res) => {
 
     // Handle different payment methods
     if (paymentMethod === "COD") {
-      return this.processCODPayment(req, res);
+      return exports.processCODPayment(req, res);
     } else if (paymentMethod === "PAYPAL") {
-      return this.createPayPalOrder(req, res);
+      return exports.createPayPalOrder(req, res);
     }
 
     // For card payments, process using the mock payment function

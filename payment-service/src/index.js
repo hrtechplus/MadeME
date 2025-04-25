@@ -29,8 +29,15 @@ app.use(limiter);
 // Logging
 app.use(morgan("combined", { stream: logger.stream }));
 
-// Body parsing
-app.use(express.json());
+// Body parsing - important to put this before the routes
+// Only parse JSON for non-webhook routes
+app.use((req, res, next) => {
+  if (req.originalUrl === "/api/payment/webhook") {
+    next();
+  } else {
+    express.json()(req, res, next);
+  }
+});
 
 // Root health check
 app.get("/health", (req, res) => {

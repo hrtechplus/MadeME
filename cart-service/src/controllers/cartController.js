@@ -41,6 +41,8 @@ exports.addToCart = async (req, res) => {
       return res.status(400).json({ message: "User ID is required" });
     }
 
+    console.log(`Adding item ${itemId} to cart for user ${userId}`);
+
     let cart = await Cart.findOne({ userId });
 
     // Check restaurant consistency if cart exists
@@ -58,21 +60,25 @@ exports.addToCart = async (req, res) => {
 
     if (!cart) {
       // Create new cart if it doesn't exist
+      console.log(`Creating new cart for user ${userId}`);
       cart = new Cart({
         userId,
         items: [{ itemId, name, price, quantity, restaurantId }],
       });
     } else {
-      // Check if item already exists in cart
+      // Check if item already exists in cart using only the itemId
+      // This ensures we correctly identify items regardless of any prefixes
       const existingItemIndex = cart.items.findIndex(
-        (item) => item.itemId === itemId
+        (item) => String(item.itemId) === String(itemId)
       );
 
       if (existingItemIndex >= 0) {
         // Update quantity if item exists
+        console.log(`Item ${itemId} exists in cart, updating quantity`);
         cart.items[existingItemIndex].quantity += quantity;
       } else {
         // Add new item if it doesn't exist
+        console.log(`Adding new item ${itemId} to cart`);
         cart.items.push({
           itemId,
           name,
@@ -84,6 +90,9 @@ exports.addToCart = async (req, res) => {
     }
 
     await cart.save();
+    console.log(
+      `Cart updated for user ${userId}, now has ${cart.items.length} items`
+    );
     res.status(200).json(cart);
   } catch (error) {
     console.error("Error updating cart:", error);
@@ -108,18 +117,27 @@ exports.updateItemQuantity = async (req, res) => {
         .json({ message: "User ID and Item ID are required" });
     }
 
+    console.log(
+      `Updating quantity for item ${itemId} in cart for user ${userId}`
+    );
+
     const cart = await Cart.findOne({ userId });
     if (!cart) {
       return res.status(404).json({ message: "Cart not found" });
     }
 
-    const itemIndex = cart.items.findIndex((item) => item.itemId === itemId);
+    // Use string comparison to ensure we find the item regardless of type
+    const itemIndex = cart.items.findIndex(
+      (item) => String(item.itemId) === String(itemId)
+    );
+
     if (itemIndex === -1) {
       return res.status(404).json({ message: "Item not found in cart" });
     }
 
     cart.items[itemIndex].quantity = quantity;
     await cart.save();
+    console.log(`Item ${itemId} quantity updated to ${quantity}`);
 
     res.json(cart);
   } catch (error) {
@@ -143,13 +161,22 @@ exports.removeItem = async (req, res) => {
         .json({ message: "User ID and Item ID are required" });
     }
 
+    console.log(`Removing item ${itemId} from cart for user ${userId}`);
+
     const cart = await Cart.findOne({ userId });
     if (!cart) {
       return res.status(404).json({ message: "Cart not found" });
     }
 
-    cart.items = cart.items.filter((item) => item.itemId !== itemId);
+    // Use string comparison to ensure we find the item regardless of type
+    cart.items = cart.items.filter(
+      (item) => String(item.itemId) !== String(itemId)
+    );
+
     await cart.save();
+    console.log(
+      `Item ${itemId} removed from cart, ${cart.items.length} items remain`
+    );
 
     res.json(cart);
   } catch (error) {
@@ -171,6 +198,8 @@ exports.clearCart = async (req, res) => {
       return res.status(400).json({ message: "User ID is required" });
     }
 
+    console.log(`Clearing cart for user ${userId}`);
+
     // Use findOneAndDelete with better error handling
     const result = await Cart.findOneAndDelete({ userId });
 
@@ -179,6 +208,8 @@ exports.clearCart = async (req, res) => {
       console.log(
         `No cart found for user ${userId}, but returning success anyway`
       );
+    } else {
+      console.log(`Cart cleared for user ${userId}`);
     }
 
     return res.status(200).json({ message: "Cart cleared successfully" });

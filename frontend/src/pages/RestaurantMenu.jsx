@@ -93,15 +93,17 @@ function RestaurantMenu() {
     try {
       // Create an item with all required fields for the cart API
       const cartItem = {
-        itemId: item._id, // Ensure using _id as the itemId
+        itemId: item._id || item.id, // Use _id or id, whichever is available
         name: item.name,
         price: item.price,
         quantity: 1,
         restaurantId: restaurantId,
       };
 
+      console.log("Attempting to add item to cart:", cartItem);
+
       // Pass the properly formatted item to the addToCart function
-      const success = await addToCart(cartItem, restaurantId);
+      const success = await addToCart(cartItem);
 
       if (success) {
         showToast("Item added to cart!", "success");
