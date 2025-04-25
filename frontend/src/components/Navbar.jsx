@@ -32,14 +32,16 @@ function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userName, setUserName] = useState("");
 
   const { getCurrentUser, isAdmin: checkIsAdmin, logout } = useAuth();
 
   useEffect(() => {
     // Check authentication status and user role
-    const { token, role } = getCurrentUser();
+    const { token, role, name } = getCurrentUser();
     setIsAuthenticated(!!token);
     setIsAdmin(role === "admin");
+    setUserName(name || "User");
 
     // Handle scroll effect
     const handleScroll = () => {
@@ -123,12 +125,33 @@ function Navbar() {
                 </Badge>
               </IconButton>
 
-              <IconButton
-                color={scrolled ? "primary" : "inherit"}
+              {/* User profile section with name */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  cursor: "pointer",
+                  borderRadius: 2,
+                  px: 1,
+                  py: 0.5,
+                  "&:hover": {
+                    bgcolor: "rgba(255, 255, 255, 0.1)",
+                  },
+                }}
                 onClick={handleMenuOpen}
               >
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mr: 1,
+                    fontWeight: "medium",
+                    color: scrolled ? "text.primary" : "white",
+                  }}
+                >
+                  {userName}
+                </Typography>
                 <Avatar sx={{ width: 32, height: 32 }} />
-              </IconButton>
+              </Box>
 
               <Menu
                 anchorEl={anchorEl}
@@ -143,6 +166,11 @@ function Navbar() {
                   },
                 }}
               >
+                <MenuItem sx={{ pointerEvents: "none", opacity: 0.7 }}>
+                  <Person sx={{ mr: 1 }} />
+                  {userName}
+                </MenuItem>
+                <Divider />
                 <MenuItem
                   onClick={() => {
                     handleMenuClose();
