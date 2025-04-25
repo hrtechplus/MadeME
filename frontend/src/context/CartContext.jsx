@@ -57,14 +57,14 @@ export const CartProvider = ({ children }) => {
 
       // Make itemId unique per user by creating a user-scoped identifier
       // This ensures items are unique per user even when product IDs are the same
-      const userScopedItemId = item.itemId 
+      const userScopedItemId = item.itemId
         ? `${userId}-${item.itemId.toString()}`
         : `${userId}-item-${Date.now()}`;
 
       // Create the data object with all required fields
       const cartItemData = {
         userId,
-        itemId: userScopedItemId,  // Use the user-scoped itemId
+        itemId: userScopedItemId, // Use the user-scoped itemId
         name: item.name,
         price: item.price,
         quantity: item.quantity,
@@ -107,8 +107,8 @@ export const CartProvider = ({ children }) => {
       console.log(`Updating quantity of item ${itemId} to ${newQuantity}`);
 
       // Check if itemId already includes the user scope prefix
-      const formattedItemId = itemId.startsWith(`${userId}-`) 
-        ? itemId 
+      const formattedItemId = itemId.startsWith(`${userId}-`)
+        ? itemId
         : `${userId}-${itemId}`;
 
       // Update in database
@@ -138,9 +138,14 @@ export const CartProvider = ({ children }) => {
     try {
       console.log("Removing item from cart:", itemId);
 
+      // Check if itemId already includes the user scope prefix
+      const formattedItemId = itemId.startsWith(`${userId}-`)
+        ? itemId
+        : `${userId}-${itemId}`;
+
       // Remove from database
       const result = await handleApiCall(
-        fetch(`${serviceUrls.cart}/api/cart/${userId}/${itemId}`, {
+        fetch(`${serviceUrls.cart}/api/cart/${userId}/${formattedItemId}`, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,
