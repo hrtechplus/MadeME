@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -28,6 +28,8 @@ import Orders from "./pages/Orders";
 import { ApiProvider, useApi } from "./context/ApiContext";
 import Payment from "./pages/Payment";
 import { ToastProvider } from "./context/ToastContext";
+import { loginWithSampleUser, sampleUser } from "./services/sampleUser";
+import { CartProvider } from "./context/CartContext";
 import "./App.css";
 
 const theme = createTheme({
@@ -97,6 +99,22 @@ const theme = createTheme({
 
 function AppContent() {
   const { error, handleApiCall } = useApi();
+
+  // Auto-login the sample user when the app starts
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userId = localStorage.getItem("userId");
+    
+    // If user is not logged in, log them in with the sample user
+    if (!token || !userId) {
+      console.log("Auto-logging in with sample user");
+      loginWithSampleUser().then(() => {
+        console.log("Sample user logged in successfully");
+      });
+    } else {
+      console.log("User already logged in", { userId });
+    }
+  }, []);
 
   const handleCloseError = () => {
     handleApiCall(null);
@@ -182,9 +200,11 @@ function App() {
       <CssBaseline />
       <ApiProvider>
         <ToastProvider>
-          <Router>
-            <AppContent />
-          </Router>
+          <CartProvider>
+            <Router>
+              <AppContent />
+            </Router>
+          </CartProvider>
         </ToastProvider>
       </ApiProvider>
     </ThemeProvider>

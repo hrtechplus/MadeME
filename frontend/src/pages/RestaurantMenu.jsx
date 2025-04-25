@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { mockRestaurants } from "../data/mockRestaurants";
+import { useCart } from "../context/CartContext";
 import "../styles/RestaurantMenu.css";
 
 const RestaurantMenu = () => {
@@ -9,7 +10,7 @@ const RestaurantMenu = () => {
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [cart, setCart] = useState([]);
+  const { cart, addToCart, updateQuantity, removeFromCart, getTotalPrice } = useCart();
 
   useEffect(() => {
     const fetchRestaurant = async () => {
@@ -32,40 +33,8 @@ const RestaurantMenu = () => {
     fetchRestaurant();
   }, [restaurantId]);
 
-  const addToCart = (item) => {
-    setCart((prevCart) => {
-      const existingItem = prevCart.find(
-        (cartItem) => cartItem._id === item._id
-      );
-      if (existingItem) {
-        return prevCart.map((cartItem) =>
-          cartItem._id === item._id
-            ? { ...cartItem, quantity: cartItem.quantity + 1 }
-            : cartItem
-        );
-      }
-      return [...prevCart, { ...item, quantity: 1 }];
-    });
-  };
-
-  const removeFromCart = (itemId) => {
-    setCart((prevCart) => prevCart.filter((item) => item._id !== itemId));
-  };
-
-  const updateQuantity = (itemId, newQuantity) => {
-    if (newQuantity < 1) {
-      removeFromCart(itemId);
-      return;
-    }
-    setCart((prevCart) =>
-      prevCart.map((item) =>
-        item._id === itemId ? { ...item, quantity: newQuantity } : item
-      )
-    );
-  };
-
-  const getTotalPrice = () => {
-    return cart.reduce((total, item) => total + item.price * item.quantity, 0);
+  const handleAddToCart = (item) => {
+    addToCart(item, restaurantId);
   };
 
   if (loading) {
@@ -112,7 +81,7 @@ const RestaurantMenu = () => {
                   <p className="price">${item.price.toFixed(2)}</p>
                   <button
                     className="add-to-cart-btn"
-                    onClick={() => addToCart(item)}
+                    onClick={() => handleAddToCart(item)}
                   >
                     Add to Cart
                   </button>
@@ -130,7 +99,7 @@ const RestaurantMenu = () => {
             <>
               <div className="cart-items">
                 {cart.map((item) => (
-                  <div key={item._id} className="cart-item">
+                  <div key={item._id || item.itemId} className="cart-item">
                     <div className="cart-item-info">
                       <h4>{item.name}</h4>
                       <p>${item.price.toFixed(2)}</p>
@@ -138,7 +107,7 @@ const RestaurantMenu = () => {
                     <div className="cart-item-controls">
                       <button
                         onClick={() =>
-                          updateQuantity(item._id, item.quantity - 1)
+                          updateQuantity(item._id || item.itemId, item.quantity - 1)
                         }
                       >
                         -
@@ -146,14 +115,14 @@ const RestaurantMenu = () => {
                       <span>{item.quantity}</span>
                       <button
                         onClick={() =>
-                          updateQuantity(item._id, item.quantity + 1)
+                          updateQuantity(item._id || item.itemId, item.quantity + 1)
                         }
                       >
                         +
                       </button>
                       <button
                         className="remove-btn"
-                        onClick={() => removeFromCart(item._id)}
+                        onClick={() => removeFromCart(item._id || item.itemId)}
                       >
                         Remove
                       </button>
@@ -165,9 +134,9 @@ const RestaurantMenu = () => {
                 <h4>Total: ${getTotalPrice().toFixed(2)}</h4>
                 <button
                   className="checkout-btn"
-                  onClick={() => navigate("/checkout", { state: { cart } })}
+                  onClick={() => navigate("/cart")}
                 >
-                  Proceed to Checkout
+                  View Cart
                 </button>
               </div>
             </>

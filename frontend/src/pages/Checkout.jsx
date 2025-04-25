@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useApi } from "../context/ApiContext";
 import { useToast } from "../context/ToastContext";
+import { useCart } from "../context/CartContext";
 import "../styles/Checkout.css";
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { serviceUrls, handleApiCall } = useApi();
   const { showToast } = useToast();
-  const [cart, setCart] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { cart, clearCart, getTotalPrice } = useCart();
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [deliveryAddress, setDeliveryAddress] = useState({
     street: "",
@@ -18,31 +18,7 @@ const Checkout = () => {
     state: "",
     zipCode: "",
   });
-
-  useEffect(() => {
-    if (location.state?.cart) {
-      setCart(location.state.cart);
-      setLoading(false);
-    } else {
-      // If no cart in state, try to fetch from API
-      const fetchCart = async () => {
-        try {
-          const userId = localStorage.getItem("userId") || "test-user";
-          const response = await handleApiCall(
-            fetch(`http://localhost:5002/api/cart/${userId}`)
-          );
-          setCart(response.data?.items || []);
-          setLoading(false);
-        } catch (err) {
-          setError("Failed to load cart. Please try again later.");
-          showToast("Failed to load cart", "error");
-          setLoading(false);
-        }
-      };
-
-      fetchCart();
-    }
-  }, [location.state, handleApiCall, serviceUrls.cart, showToast]);
+  const userId = localStorage.getItem("userId") || "user123";
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -72,8 +48,7 @@ const Checkout = () => {
 
     try {
       setLoading(true);
-      const userId = localStorage.getItem("userId") || "user123"; // Using default userId if none exists
-
+      
       // Create order
       const orderData = {
         userId: userId,
@@ -111,33 +86,9 @@ const Checkout = () => {
       const orderResult = await orderResponse.json();
       console.log("Order created successfully:", orderResult);
 
-      // Try to clear cart but don't let it stop the checkout process if it fails
-      try {
-        console.log(`Attempting to clear cart for user ${userId}`);
-        const deleteCartResponse = await fetch(
-          `http://localhost:5002/api/cart/${userId}`,
-          {
-            method: "DELETE",
-            // Set a timeout to prevent long waiting if service is down
-            signal: AbortSignal.timeout(2000), // 2 second timeout
-          }
-        );
-
-        if (deleteCartResponse.ok) {
-          console.log("Cart cleared successfully");
-        } else {
-          console.warn(
-            `Failed to clear cart: HTTP ${deleteCartResponse.status}`
-          );
-        }
-      } catch (cartError) {
-        // Just log the cart error but continue with checkout
-        console.error("Error clearing cart (ignoring):", cartError.message);
-      }
-
-      // Manually clear cart state in frontend for better UX even if backend fails
-      setCart([]);
-
+      // Clear cart using our context method (handles both localStorage and server)
+      await clearCart();
+      
       showToast("Order created successfully", "success");
 
       // Navigate to payment page with order details
@@ -154,10 +105,6 @@ const Checkout = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const getTotalPrice = () => {
-    return cart.reduce((total, item) => total + item.price * item.quantity, 0);
   };
 
   if (loading) {
@@ -237,7 +184,7 @@ const Checkout = () => {
           <h3>Order Summary</h3>
           <div className="order-items">
             {cart.map((item) => (
-              <div key={item._id} className="order-item">
+              <div key={item._id || item.itemId} className="order-item">
                 <div className="item-info">
                   <h4>{item.name}</h4>
                   <p>Quantity: {item.quantity}</p>
