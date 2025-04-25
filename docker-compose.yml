@@ -15,7 +15,7 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - VITE_CART_SERVICE_URL=http://localhost:5003
+      - VITE_CART_SERVICE_URL=http://localhost:5002
       - VITE_ORDER_SERVICE_URL=http://localhost:5001
       - VITE_PAYMENT_SERVICE_URL=http://localhost:5003
       - VITE_RESTAURANT_SERVICE_URL=http://localhost:5004
@@ -29,10 +29,11 @@ services:
   cart-service:
     build: ./cart-service
     ports:
-      - "5003:5003"
+      - "5002:5002"
     environment:
-      - PORT=5003
+      - PORT=5002
       - MONGODB_URI=mongodb://mongodb:27017/cart-service
+      - BYPASS_AUTH=true
     depends_on:
       - mongodb
     networks:

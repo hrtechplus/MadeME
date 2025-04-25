@@ -3,6 +3,12 @@ const router = express.Router();
 const { body } = require("express-validator");
 const orderController = require("../controllers/orderController");
 
+// Admin routes
+const { verifyToken, verifyAdmin } = require("../middleware/auth");
+
+// Get all orders (admin only)
+router.get("/admin/all", verifyToken, verifyAdmin, orderController.getAllOrders);
+
 // Create new order
 router.post(
   "/",
