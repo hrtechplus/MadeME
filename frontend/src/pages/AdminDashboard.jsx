@@ -7,10 +7,16 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("orders");
   const [orders, setOrders] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
+  const [restaurantFilters, setRestaurantFilters] = useState({
+    name: "",
+    cuisine: "all",
+    status: "all",
+  });
   const [dateFilter, setDateFilter] = useState({
     startDate: "",
     endDate: "",
@@ -19,8 +25,12 @@ const AdminDashboard = () => {
   const [itemsPerPage] = useState(10);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedPayment, setSelectedPayment] = useState(null);
+  const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showRestaurantModal, setShowRestaurantModal] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [restaurantForm, setRestaurantForm] = useState({});
 
   const { serviceUrls, handleApiCall } = useApi();
   const { showToast } = useToast();
@@ -28,14 +38,17 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (activeTab === "orders") {
       fetchOrders();
-    } else {
+    } else if (activeTab === "payments") {
       fetchPayments();
+    } else if (activeTab === "restaurants") {
+      fetchRestaurants();
     }
   }, [
     activeTab,
     statusFilter,
     paymentStatusFilter,
     paymentMethodFilter,
+    restaurantFilters,
     dateFilter,
   ]);
 
@@ -126,6 +139,58 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchRestaurants = async () => {
+    try {
+      setLoading(true);
+
+      // Build query parameters
+      let queryParams = new URLSearchParams();
+
+      if (restaurantFilters.name) {
+        queryParams.append("name", restaurantFilters.name);
+      }
+
+      if (restaurantFilters.cuisine !== "all") {
+        queryParams.append("cuisine", restaurantFilters.cuisine);
+      }
+
+      // Don't filter by status in API call, we'll filter client-side
+      // since the API doesn't support this directly
+
+      const response = await handleApiCall(
+        fetch(
+          `${serviceUrls.restaurant}/api/restaurant?${queryParams.toString()}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              "x-admin-auth": "true",
+            },
+          }
+        )
+      );
+
+      // Filter by status client-side if needed
+      let restaurantData = response.data;
+      if (restaurantFilters.status !== "all") {
+        const active = restaurantFilters.status === "active";
+        restaurantData = restaurantData.filter(
+          (restaurant) => restaurant.isActive === active
+        );
+      }
+
+      setRestaurants(restaurantData);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching restaurants:", error);
+      showToast(
+        "Failed to fetch restaurants. Please ensure you have admin access.",
+        "error"
+      );
+      setLoading(false);
+      setRestaurants([]); // Reset to empty array on error
+    }
+  };
+
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
       await handleApiCall(
@@ -154,6 +219,84 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleUpdateRestaurantStatus = async (restaurantId, isActive) => {
+    try {
+      await handleApiCall(
+        fetch(`${serviceUrls.restaurant}/api/restaurant/${restaurantId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+          body: JSON.stringify({ isActive }),
+        })
+      );
+
+      showToast(
+        `Restaurant ${isActive ? "activated" : "deactivated"} successfully`,
+        "success"
+      );
+
+      // Update the restaurant status in the local state
+      setRestaurants(
+        restaurants.map((restaurant) =>
+          restaurant._id === restaurantId
+            ? { ...restaurant, isActive }
+            : restaurant
+        )
+      );
+
+      // If we're in the modal, update the selected restaurant too
+      if (selectedRestaurant && selectedRestaurant._id === restaurantId) {
+        setSelectedRestaurant({ ...selectedRestaurant, isActive });
+      }
+    } catch (error) {
+      console.error("Error updating restaurant status:", error);
+      showToast("Failed to update restaurant status", "error");
+    }
+  };
+
+  const handleSaveRestaurant = async (e) => {
+    e.preventDefault();
+
+    try {
+      await handleApiCall(
+        fetch(
+          `${serviceUrls.restaurant}/api/restaurant/${selectedRestaurant._id}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              "x-admin-auth": "true",
+            },
+            body: JSON.stringify(restaurantForm),
+          }
+        )
+      );
+
+      showToast("Restaurant details updated successfully", "success");
+
+      // Update local state
+      const updatedRestaurant = { ...selectedRestaurant, ...restaurantForm };
+      setSelectedRestaurant(updatedRestaurant);
+      setRestaurants(
+        restaurants.map((restaurant) =>
+          restaurant._id === selectedRestaurant._id
+            ? updatedRestaurant
+            : restaurant
+        )
+      );
+
+      // Exit edit mode
+      setEditMode(false);
+    } catch (error) {
+      console.error("Error updating restaurant:", error);
+      showToast("Failed to update restaurant details", "error");
+    }
+  };
+
   const viewOrderDetails = (order) => {
     setSelectedOrder(order);
     setShowModal(true);
@@ -164,6 +307,13 @@ const AdminDashboard = () => {
     setShowPaymentModal(true);
   };
 
+  const viewRestaurantDetails = (restaurant) => {
+    setSelectedRestaurant(restaurant);
+    setRestaurantForm({ ...restaurant });
+    setShowRestaurantModal(true);
+    setEditMode(false);
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setSelectedOrder(null);
@@ -172,6 +322,12 @@ const AdminDashboard = () => {
   const closePaymentModal = () => {
     setShowPaymentModal(false);
     setSelectedPayment(null);
+  };
+
+  const closeRestaurantModal = () => {
+    setShowRestaurantModal(false);
+    setSelectedRestaurant(null);
+    setEditMode(false);
   };
 
   // Pagination logic for orders
@@ -188,6 +344,15 @@ const AdminDashboard = () => {
     indexOfLastPayment
   );
   const totalPaymentPages = Math.ceil(payments.length / itemsPerPage);
+
+  // Pagination logic for restaurants
+  const indexOfLastRestaurant = currentPage * itemsPerPage;
+  const indexOfFirstRestaurant = indexOfLastRestaurant - itemsPerPage;
+  const currentRestaurants = restaurants.slice(
+    indexOfFirstRestaurant,
+    indexOfLastRestaurant
+  );
+  const totalRestaurantPages = Math.ceil(restaurants.length / itemsPerPage);
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
@@ -219,6 +384,11 @@ const AdminDashboard = () => {
     return `$${parseFloat(amount).toFixed(2)}`;
   };
 
+  const handleRestaurantFormChange = (e) => {
+    const { name, value } = e.target;
+    setRestaurantForm({ ...restaurantForm, [name]: value });
+  };
+
   return (
     <div className="admin-dashboard">
       <h1>Admin Dashboard</h1>
@@ -226,15 +396,32 @@ const AdminDashboard = () => {
       <div className="dashboard-tabs">
         <button
           className={`tab-button ${activeTab === "orders" ? "active" : ""}`}
-          onClick={() => setActiveTab("orders")}
+          onClick={() => {
+            setActiveTab("orders");
+            setCurrentPage(1);
+          }}
         >
           Order Management
         </button>
         <button
           className={`tab-button ${activeTab === "payments" ? "active" : ""}`}
-          onClick={() => setActiveTab("payments")}
+          onClick={() => {
+            setActiveTab("payments");
+            setCurrentPage(1);
+          }}
         >
           Payment Management
+        </button>
+        <button
+          className={`tab-button ${
+            activeTab === "restaurants" ? "active" : ""
+          }`}
+          onClick={() => {
+            setActiveTab("restaurants");
+            setCurrentPage(1);
+          }}
+        >
+          Restaurant Management
         </button>
       </div>
 
@@ -396,7 +583,7 @@ const AdminDashboard = () => {
             </>
           )}
         </>
-      ) : (
+      ) : activeTab === "payments" ? (
         <>
           <h2>Payment Management</h2>
           <div className="filters">
@@ -551,6 +738,198 @@ const AdminDashboard = () => {
                   Showing {payments.length > 0 ? indexOfFirstPayment + 1 : 0} -{" "}
                   {Math.min(indexOfLastPayment, payments.length)} of{" "}
                   {payments.length}
+                </p>
+              </div>
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          <h2>Restaurant Management</h2>
+          <div className="filters">
+            <div className="filter-group">
+              <label>Name Search:</label>
+              <input
+                type="text"
+                placeholder="Search by name..."
+                value={restaurantFilters.name}
+                onChange={(e) =>
+                  setRestaurantFilters({
+                    ...restaurantFilters,
+                    name: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            <div className="filter-group">
+              <label>Cuisine:</label>
+              <select
+                value={restaurantFilters.cuisine}
+                onChange={(e) =>
+                  setRestaurantFilters({
+                    ...restaurantFilters,
+                    cuisine: e.target.value,
+                  })
+                }
+              >
+                <option value="all">All Cuisines</option>
+                <option value="Italian">Italian</option>
+                <option value="Chinese">Chinese</option>
+                <option value="Indian">Indian</option>
+                <option value="Mexican">Mexican</option>
+                <option value="Japanese">Japanese</option>
+                <option value="American">American</option>
+                <option value="Thai">Thai</option>
+                <option value="Mediterranean">Mediterranean</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label>Status:</label>
+              <select
+                value={restaurantFilters.status}
+                onChange={(e) =>
+                  setRestaurantFilters({
+                    ...restaurantFilters,
+                    status: e.target.value,
+                  })
+                }
+              >
+                <option value="all">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            <button className="refresh-btn" onClick={fetchRestaurants}>
+              Refresh
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="loading">Loading restaurants...</div>
+          ) : (
+            <>
+              <div className="restaurants-table-container">
+                <table className="restaurants-table">
+                  <thead>
+                    <tr>
+                      <th>Restaurant ID</th>
+                      <th>Name</th>
+                      <th>Cuisine</th>
+                      <th>Address</th>
+                      <th>Status</th>
+                      <th>Rating</th>
+                      <th>Added Date</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentRestaurants.length > 0 ? (
+                      currentRestaurants.map((restaurant) => (
+                        <tr key={restaurant._id}>
+                          <td>{restaurant._id.substring(0, 8)}...</td>
+                          <td>{restaurant.name}</td>
+                          <td>{restaurant.cuisine}</td>
+                          <td>{`${restaurant.address.city}, ${restaurant.address.state}`}</td>
+                          <td>
+                            <span
+                              className={`status-badge ${
+                                restaurant.isActive
+                                  ? "status-completed"
+                                  : "status-failed"
+                              }`}
+                            >
+                              {restaurant.isActive ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                          <td>{restaurant.rating?.toFixed(1) || "N/A"}</td>
+                          <td>{formatDate(restaurant.createdAt)}</td>
+                          <td>
+                            <div className="action-buttons">
+                              <button
+                                onClick={() =>
+                                  viewRestaurantDetails(restaurant)
+                                }
+                                className="view-details-btn"
+                              >
+                                View Details
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleUpdateRestaurantStatus(
+                                    restaurant._id,
+                                    !restaurant.isActive
+                                  )
+                                }
+                                className={`status-toggle-btn ${
+                                  restaurant.isActive
+                                    ? "deactivate"
+                                    : "activate"
+                                }`}
+                              >
+                                {restaurant.isActive
+                                  ? "Deactivate"
+                                  : "Activate"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="8" className="no-restaurants-found">
+                          No restaurants found with the selected filters.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Restaurant Pagination Controls */}
+              {restaurants.length > 0 && (
+                <div className="pagination">
+                  <button
+                    onClick={() => paginate(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="page-btn"
+                  >
+                    Previous
+                  </button>
+
+                  <div className="page-numbers">
+                    {[...Array(totalRestaurantPages).keys()].map((number) => (
+                      <button
+                        key={number + 1}
+                        onClick={() => paginate(number + 1)}
+                        className={`page-number ${
+                          currentPage === number + 1 ? "active" : ""
+                        }`}
+                      >
+                        {number + 1}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => paginate(currentPage + 1)}
+                    disabled={currentPage === totalRestaurantPages}
+                    className="page-btn"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+
+              <div className="restaurant-stats">
+                <p>Total Restaurants: {restaurants.length}</p>
+                <p>
+                  Showing{" "}
+                  {restaurants.length > 0 ? indexOfFirstRestaurant + 1 : 0} -{" "}
+                  {Math.min(indexOfLastRestaurant, restaurants.length)} of{" "}
+                  {restaurants.length}
                 </p>
               </div>
             </>
@@ -766,6 +1145,305 @@ const AdminDashboard = () => {
                   )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restaurant Details Modal */}
+      {showRestaurantModal && selectedRestaurant && (
+        <div className="restaurant-details-modal">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>{editMode ? "Edit Restaurant" : "Restaurant Details"}</h2>
+              <button className="close-button" onClick={closeRestaurantModal}>
+                ×
+              </button>
+            </div>
+
+            {!editMode ? (
+              <>
+                <div className="restaurant-info-grid">
+                  <div className="restaurant-info-section">
+                    <h3>Basic Information</h3>
+                    <p>
+                      <strong>Restaurant ID:</strong> {selectedRestaurant._id}
+                    </p>
+                    <p>
+                      <strong>Name:</strong> {selectedRestaurant.name}
+                    </p>
+                    <p>
+                      <strong>Cuisine:</strong> {selectedRestaurant.cuisine}
+                    </p>
+                    <p>
+                      <strong>Status:</strong>
+                      <span
+                        className={`status-badge ${
+                          selectedRestaurant.isActive
+                            ? "status-completed"
+                            : "status-failed"
+                        }`}
+                      >
+                        {selectedRestaurant.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </p>
+                    <p>
+                      <strong>Rating:</strong>{" "}
+                      {selectedRestaurant.rating?.toFixed(1) || "N/A"} / 5
+                    </p>
+                    <p>
+                      <strong>Added Date:</strong>{" "}
+                      {formatDate(selectedRestaurant.createdAt)}
+                    </p>
+                    <p>
+                      <strong>Last Updated:</strong>{" "}
+                      {formatDate(selectedRestaurant.updatedAt)}
+                    </p>
+                  </div>
+
+                  <div className="restaurant-info-section">
+                    <h3>Location & Contact</h3>
+                    <p>
+                      <strong>Address:</strong>
+                    </p>
+                    <p className="address-details">
+                      {selectedRestaurant.address.street}
+                      <br />
+                      {selectedRestaurant.address.city},{" "}
+                      {selectedRestaurant.address.state}{" "}
+                      {selectedRestaurant.address.zipCode}
+                      <br />
+                      {selectedRestaurant.address.country}
+                    </p>
+                    <p>
+                      <strong>Phone:</strong> {selectedRestaurant.phone}
+                    </p>
+                    <p>
+                      <strong>Email:</strong>{" "}
+                      {selectedRestaurant.email || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Website:</strong>{" "}
+                      {selectedRestaurant.website || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Owner ID:</strong> {selectedRestaurant.ownerId}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="restaurant-description-section">
+                  <h3>Description</h3>
+                  <p>
+                    {selectedRestaurant.description ||
+                      "No description available."}
+                  </p>
+                </div>
+
+                <div className="restaurant-hours-section">
+                  <h3>Opening Hours</h3>
+                  {selectedRestaurant.openingHours ? (
+                    <div className="hours-grid">
+                      {Object.entries(selectedRestaurant.openingHours).map(
+                        ([day, hours]) => (
+                          <div key={day} className="hours-row">
+                            <span className="day">{day}:</span>
+                            <span className="hours">{hours || "Closed"}</span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  ) : (
+                    <p>No opening hours available.</p>
+                  )}
+                </div>
+
+                <div className="restaurant-menu-summary">
+                  <h3>Menu</h3>
+                  <p>{selectedRestaurant.menu?.length || 0} items available</p>
+                </div>
+
+                <div className="modal-actions">
+                  <button
+                    className="update-status-btn"
+                    onClick={() =>
+                      handleUpdateRestaurantStatus(
+                        selectedRestaurant._id,
+                        !selectedRestaurant.isActive
+                      )
+                    }
+                  >
+                    {selectedRestaurant.isActive
+                      ? "Deactivate Restaurant"
+                      : "Activate Restaurant"}
+                  </button>
+                  <button
+                    className="edit-restaurant-btn"
+                    onClick={() => setEditMode(true)}
+                  >
+                    Edit Details
+                  </button>
+                </div>
+              </>
+            ) : (
+              <form
+                onSubmit={handleSaveRestaurant}
+                className="restaurant-edit-form"
+              >
+                <div className="form-grid">
+                  <div className="form-column">
+                    <div className="form-group">
+                      <label>Restaurant Name:</label>
+                      <input
+                        type="text"
+                        name="name"
+                        value={restaurantForm.name || ""}
+                        onChange={handleRestaurantFormChange}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Cuisine:</label>
+                      <select
+                        name="cuisine"
+                        value={restaurantForm.cuisine || ""}
+                        onChange={handleRestaurantFormChange}
+                        required
+                      >
+                        <option value="Italian">Italian</option>
+                        <option value="Chinese">Chinese</option>
+                        <option value="Indian">Indian</option>
+                        <option value="Mexican">Mexican</option>
+                        <option value="Japanese">Japanese</option>
+                        <option value="American">American</option>
+                        <option value="Thai">Thai</option>
+                        <option value="Mediterranean">Mediterranean</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Phone:</label>
+                      <input
+                        type="text"
+                        name="phone"
+                        value={restaurantForm.phone || ""}
+                        onChange={handleRestaurantFormChange}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Email:</label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={restaurantForm.email || ""}
+                        onChange={handleRestaurantFormChange}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Website:</label>
+                      <input
+                        type="text"
+                        name="website"
+                        value={restaurantForm.website || ""}
+                        onChange={handleRestaurantFormChange}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-column">
+                    <div className="form-group">
+                      <label>Description:</label>
+                      <textarea
+                        name="description"
+                        value={restaurantForm.description || ""}
+                        onChange={handleRestaurantFormChange}
+                        rows="3"
+                      ></textarea>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Street Address:</label>
+                      <input
+                        type="text"
+                        name="address.street"
+                        value={restaurantForm.address?.street || ""}
+                        onChange={(e) => {
+                          const address = {
+                            ...restaurantForm.address,
+                            street: e.target.value,
+                          };
+                          setRestaurantForm({ ...restaurantForm, address });
+                        }}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>City:</label>
+                      <input
+                        type="text"
+                        name="address.city"
+                        value={restaurantForm.address?.city || ""}
+                        onChange={(e) => {
+                          const address = {
+                            ...restaurantForm.address,
+                            city: e.target.value,
+                          };
+                          setRestaurantForm({ ...restaurantForm, address });
+                        }}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>State:</label>
+                      <input
+                        type="text"
+                        name="address.state"
+                        value={restaurantForm.address?.state || ""}
+                        onChange={(e) => {
+                          const address = {
+                            ...restaurantForm.address,
+                            state: e.target.value,
+                          };
+                          setRestaurantForm({ ...restaurantForm, address });
+                        }}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Zip Code:</label>
+                      <input
+                        type="text"
+                        name="address.zipCode"
+                        value={restaurantForm.address?.zipCode || ""}
+                        onChange={(e) => {
+                          const address = {
+                            ...restaurantForm.address,
+                            zipCode: e.target.value,
+                          };
+                          setRestaurantForm({ ...restaurantForm, address });
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="cancel-btn"
+                    onClick={() => setEditMode(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="save-btn">
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
