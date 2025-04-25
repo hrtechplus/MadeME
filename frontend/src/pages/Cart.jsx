@@ -40,12 +40,12 @@ function Cart() {
     navigate("/checkout");
   };
 
-  const handleUpdateQuantity = (id, quantity) => {
-    updateQuantity(id, quantity);
+  const handleUpdateQuantity = (itemId, quantity) => {
+    updateQuantity(itemId, quantity);
   };
 
-  const handleRemoveItem = (id) => {
-    removeFromCart(id);
+  const handleRemoveItem = (itemId) => {
+    removeFromCart(itemId);
     showToast("Item removed from cart", "success");
   };
 
