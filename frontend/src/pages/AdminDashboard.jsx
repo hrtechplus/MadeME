@@ -159,7 +159,7 @@ const AdminDashboard = () => {
 
       const response = await handleApiCall(
         fetch(
-          `${serviceUrls.restaurant}/api/restaurant?${queryParams.toString()}`,
+          `${serviceUrls.restaurant}/api/restaurants?${queryParams.toString()}`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,
