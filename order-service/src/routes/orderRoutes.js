@@ -36,15 +36,25 @@ router.patch(
   "/:id/status",
   [
     body("status").isIn([
+      "VERIFYING",
       "PENDING",
       "CONFIRMED",
       "REJECTED",
       "PREPARING",
       "OUT_FOR_DELIVERY",
       "DELIVERED",
+      "CANCELLED",
     ]),
   ],
   orderController.updateOrderStatus
+);
+
+// Cancel order
+router.post(
+  "/:id/cancel",
+  verifyToken,
+  [body("cancellationReason").optional().isString()],
+  orderController.cancelOrder
 );
 
 // Handle restaurant response

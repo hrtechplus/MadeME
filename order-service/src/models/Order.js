@@ -36,14 +36,16 @@ const orderSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: [
+      "VERIFYING",
       "PENDING",
       "CONFIRMED",
       "REJECTED",
       "PREPARING",
       "OUT_FOR_DELIVERY",
       "DELIVERED",
+      "CANCELLED",
     ],
-    default: "PENDING",
+    default: "VERIFYING",
   },
   restaurantResponse: {
     type: String,
