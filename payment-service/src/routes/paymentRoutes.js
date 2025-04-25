@@ -64,4 +64,8 @@ router.post(
 // Get payment status
 router.get("/:paymentId", paymentController.getPaymentStatus);
 
+// Admin Routes
+// Get all payments (admin only)
+router.get("/admin/all", paymentController.getAllPayments);
+
 module.exports = router;

@@ -415,6 +415,46 @@ exports.getPaymentStatus = async (req, res) => {
   }
 };
 
+// Get all payments (admin only)
+exports.getAllPayments = async (req, res) => {
+  try {
+    const { status, paymentMethod, startDate, endDate } = req.query;
+
+    // Build query based on filters
+    let query = {};
+
+    if (status) {
+      query.status = status;
+    }
+
+    if (paymentMethod) {
+      query.paymentMethod = paymentMethod;
+    }
+
+    if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    } else if (startDate) {
+      query.createdAt = { $gte: new Date(startDate) };
+    } else if (endDate) {
+      query.createdAt = { $lte: new Date(endDate) };
+    }
+
+    // Fetch payments with sorting by latest first
+    const payments = await Payment.find(query).sort({ createdAt: -1 });
+
+    res.json(payments);
+  } catch (error) {
+    logger.error("Error fetching payments:", error);
+    res.status(500).json({
+      message: "Error fetching payments",
+      error: error.message,
+    });
+  }
+};
+
 // Helper function to handle successful payment
 async function handlePaymentSuccess(paymentIntent) {
   try {
