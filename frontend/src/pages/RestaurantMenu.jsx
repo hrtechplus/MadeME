@@ -91,34 +91,26 @@ function RestaurantMenu() {
   // Handle adding item to cart
   const handleAddToCart = async (item) => {
     try {
-      // Create an item with consistent id property to match what cart expects
+      // Create an item with all required fields for the cart API
       const cartItem = {
-        ...item,
-        id: item._id, // Add id field that matches _id for cart operations
-        name: item.name, // Ensure name property exists
+        itemId: item._id, // Ensure using _id as the itemId
+        name: item.name,
         price: item.price,
+        quantity: 1,
+        restaurantId: restaurantId,
       };
 
-      // Pass the item and restaurant ID to the addToCart function
+      // Pass the properly formatted item to the addToCart function
       const success = await addToCart(cartItem, restaurantId);
 
       if (success) {
-        // Show success toast if available
-        if (typeof showToast === "function") {
-          showToast("Item added to cart!", "success");
-        }
+        showToast("Item added to cart!", "success");
       } else {
-        // Show error toast if available
-        if (typeof showToast === "function") {
-          showToast("Failed to add item to cart. Please try again.", "error");
-        }
+        showToast("Failed to add item to cart. Please try again.", "error");
       }
     } catch (error) {
       console.error("Error adding to cart:", error);
-      // Show error toast if available
-      if (typeof showToast === "function") {
-        showToast("Failed to add item to cart. Please try again.", "error");
-      }
+      showToast("Failed to add item to cart. Please try again.", "error");
     }
   };
 

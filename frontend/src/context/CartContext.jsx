@@ -48,16 +48,18 @@ export const CartProvider = ({ children }) => {
     try {
       console.log("Adding item to cart:", item);
 
-      // Prepare the item for adding to cart
-      const cartItem = {
-        itemId: item.id || item._id, // Handle both id and _id formats
-        name: item.name,
-        price: item.price,
-        quantity: 1,
-        restaurantId: restaurantId || item.restaurantId || "default-restaurant",
-      };
-
-      console.log("Cart item to be added:", { userId, ...cartItem });
+      // No need to construct a new item object,
+      // just make sure all required fields are present
+      if (
+        !item.itemId ||
+        !item.name ||
+        typeof item.price !== "number" ||
+        !item.quantity ||
+        !item.restaurantId
+      ) {
+        console.error("Missing required cart item fields:", item);
+        return false;
+      }
 
       // Add to database
       const result = await handleApiCall(
@@ -69,7 +71,11 @@ export const CartProvider = ({ children }) => {
           },
           body: JSON.stringify({
             userId,
-            ...cartItem,
+            itemId: item.itemId,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            restaurantId: item.restaurantId,
           }),
         })
       );

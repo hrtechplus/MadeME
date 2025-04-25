@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Create axios instances for each service
 const cartClient = axios.create({
-  baseURL: "http://localhost:5003/api",
+  baseURL: "http://localhost:5002/api",
   timeout: 5000,
 });
 
