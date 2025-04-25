@@ -51,6 +51,7 @@ function RestaurantMenu() {
     removeFromCart,
     getTotalPrice,
   } = useCart();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchRestaurant = async () => {
@@ -88,14 +89,37 @@ function RestaurantMenu() {
   }, [restaurantId]);
 
   // Handle adding item to cart
-  const handleAddToCart = (item) => {
-    // Create an item with consistent id property to match what cart expects
-    const cartItem = {
-      ...item,
-      id: item._id, // Add id field that matches _id for cart operations
-    };
-    // Pass the item and restaurant ID to the addToCart function
-    addToCart(cartItem, restaurantId);
+  const handleAddToCart = async (item) => {
+    try {
+      // Create an item with consistent id property to match what cart expects
+      const cartItem = {
+        ...item,
+        id: item._id, // Add id field that matches _id for cart operations
+        name: item.name, // Ensure name property exists
+        price: item.price,
+      };
+
+      // Pass the item and restaurant ID to the addToCart function
+      const success = await addToCart(cartItem, restaurantId);
+
+      if (success) {
+        // Show success toast if available
+        if (typeof showToast === "function") {
+          showToast("Item added to cart!", "success");
+        }
+      } else {
+        // Show error toast if available
+        if (typeof showToast === "function") {
+          showToast("Failed to add item to cart. Please try again.", "error");
+        }
+      }
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      // Show error toast if available
+      if (typeof showToast === "function") {
+        showToast("Failed to add item to cart. Please try again.", "error");
+      }
+    }
   };
 
   // Handle updating item quantity

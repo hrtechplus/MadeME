@@ -50,7 +50,7 @@ export const CartProvider = ({ children }) => {
 
       // Prepare the item for adding to cart
       const cartItem = {
-        itemId: item._id,
+        itemId: item.id || item._id, // Handle both id and _id formats
         name: item.name,
         price: item.price,
         quantity: 1,
@@ -80,8 +80,10 @@ export const CartProvider = ({ children }) => {
       await loadCartFromDB();
 
       console.log("Item added to cart in database");
+      return true; // Return success status
     } catch (err) {
       console.error("Error adding item to cart:", err);
+      return false; // Return failure status
     }
   };
 
