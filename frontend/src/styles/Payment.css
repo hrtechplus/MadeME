@@ -272,3 +272,110 @@
 .cod-button:hover {
   background-color: #2f855a;
 }
+
+/* PayPal specific styles */
+.paypal-icon {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 0.75rem;
+  letter-spacing: -1px;
+}
+
+.paypal-section {
+  padding: 1rem 0;
+}
+
+.paypal-info {
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+  color: #555;
+}
+
+.paypal-button {
+  background: #009cde;
+  border: none;
+}
+
+.paypal-button:hover {
+  background: #0070ba;
+}
+
+/* Success/error pages for payment redirects */
+.payment-result-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 70vh;
+  padding: 2rem;
+}
+
+.payment-result {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  text-align: center;
+  max-width: 500px;
+  width: 100%;
+}
+
+.loading-spinner {
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top: 4px solid #0088a9;
+  width: 40px;
+  height: 40px;
+  margin: 20px auto;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.success-message,
+.error-message,
+.cancel-message {
+  margin-top: 1.5rem;
+  padding: 1rem;
+}
+
+.success-message i {
+  color: #4caf50;
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.cancel-message i {
+  color: #f44336;
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.error-message {
+  color: #f44336;
+}
+
+.return-button {
+  margin-top: 1.5rem;
+  background-color: #0088a9;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.return-button:hover {
+  background-color: #006d87;
+}

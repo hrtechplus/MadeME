@@ -29,6 +29,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Orders from "./pages/Orders";
 import { ApiProvider, useApi } from "./context/ApiContext";
 import Payment from "./pages/Payment";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentCancel from "./pages/PaymentCancel";
 import { ToastProvider } from "./context/ToastContext";
 import { loginWithSampleUser, sampleUser } from "./services/sampleUser";
 import { CartProvider } from "./context/CartContext";
@@ -148,6 +150,22 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Payment />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/payment/success"
+            element={
+              <ProtectedRoute>
+                <PaymentSuccess />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/payment/cancel"
+            element={
+              <ProtectedRoute>
+                <PaymentCancel />
               </ProtectedRoute>
             }
           />

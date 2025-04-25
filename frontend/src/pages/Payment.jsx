@@ -53,11 +53,13 @@ const Payment = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
           body: JSON.stringify({
             orderId,
             amount,
             paymentMethod: "COD",
+            userId: localStorage.getItem("userId"),
           }),
         })
       );
@@ -88,6 +90,44 @@ const Payment = () => {
     }
   };
 
+  const handlePayPalPayment = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Create a PayPal order
+      const response = await handleApiCall(
+        fetch(`${serviceUrls.payment}/api/payment/paypal/create-order`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            orderId,
+            amount,
+            userId: localStorage.getItem("userId"),
+          }),
+        })
+      );
+
+      if (response.data && response.data.success && response.data.approvalUrl) {
+        // Redirect to PayPal for payment approval
+        window.location.href = response.data.approvalUrl;
+      } else {
+        setError("Failed to initiate PayPal payment. Please try again.");
+        showToast("Failed to initiate PayPal payment", "error");
+      }
+    } catch (err) {
+      setError(
+        err.message || "Error initiating PayPal payment. Please try again."
+      );
+      showToast("Error initiating PayPal payment", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCardPayment = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -100,28 +140,57 @@ const Payment = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
           body: JSON.stringify({
             orderId,
             amount,
-            userId: localStorage.getItem("userId") || "user123",
+            userId: localStorage.getItem("userId"),
             email: cardDetails.name.replace(/\s/g, "") + "@example.com", // Generate email from name for demo
           }),
         })
       );
 
-      // Demo successful payment (in a real app, you would use Stripe.js to handle the payment)
-      setSuccess(true);
-      showToast("Card payment successful!", "success");
-
-      setTimeout(() => {
-        navigate("/orders", {
-          state: {
-            message: "Order placed successfully with card payment!",
-            orderId: intentResponse.data?.paymentId || orderId,
+      // Process the card payment
+      const paymentResponse = await handleApiCall(
+        fetch(`${serviceUrls.payment}/api/payment/process`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        });
-      }, 3000);
+          body: JSON.stringify({
+            orderId,
+            amount,
+            paymentMethod: "CARD",
+            cardDetails: {
+              ...cardDetails,
+              // In a real app, you would not send raw card details directly
+              // This is just for demonstration purposes
+            },
+          }),
+        })
+      );
+
+      if (paymentResponse.data.success) {
+        // Demo successful payment
+        setSuccess(true);
+        showToast("Card payment successful!", "success");
+
+        setTimeout(() => {
+          navigate("/orders", {
+            state: {
+              message: "Order placed successfully with card payment!",
+              orderId: paymentResponse.data?.paymentId || orderId,
+            },
+          });
+        }, 3000);
+      } else {
+        setError(
+          paymentResponse.data.message || "Payment failed. Please try again."
+        );
+        showToast(paymentResponse.data.message || "Payment failed", "error");
+      }
     } catch (err) {
       setError(
         err.message || "Error processing card payment. Please try again."
@@ -177,6 +246,18 @@ const Payment = () => {
           </div>
           <div
             className={`payment-method ${
+              paymentMethod === "PAYPAL" ? "selected" : ""
+            }`}
+            onClick={() => handlePaymentMethodChange("PAYPAL")}
+          >
+            <div className="method-icon paypal-icon">
+              <span style={{ color: "#003087" }}>Pay</span>
+              <span style={{ color: "#009cde" }}>Pal</span>
+            </div>
+            <div className="method-name">PayPal</div>
+          </div>
+          <div
+            className={`payment-method ${
               paymentMethod === "COD" ? "selected" : ""
             }`}
             onClick={() => handlePaymentMethodChange("COD")}
@@ -186,7 +267,7 @@ const Payment = () => {
           </div>
         </div>
 
-        {paymentMethod === "CARD" ? (
+        {paymentMethod === "CARD" && (
           <form onSubmit={handleCardPayment}>
             <div className="form-group">
               <label htmlFor="name">Cardholder Name</label>
@@ -256,7 +337,32 @@ const Payment = () => {
               )}
             </button>
           </form>
-        ) : (
+        )}
+
+        {paymentMethod === "PAYPAL" && (
+          <div className="paypal-section">
+            <p className="paypal-info">
+              Pay securely using your PayPal account. You will be redirected to
+              PayPal to complete your payment.
+            </p>
+            <button
+              className="pay-button paypal-button"
+              onClick={handlePayPalPayment}
+              disabled={loading}
+            >
+              {loading ? (
+                <div className="button-loading">
+                  <div className="spinner"></div>
+                  Processing...
+                </div>
+              ) : (
+                "Pay with PayPal"
+              )}
+            </button>
+          </div>
+        )}
+
+        {paymentMethod === "COD" && (
           <div className="cod-section">
             <p className="cod-info">
               Pay with cash when your order is delivered. Our delivery agent

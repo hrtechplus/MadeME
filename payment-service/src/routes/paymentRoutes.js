@@ -31,9 +31,27 @@ router.post(
   [
     body("orderId").notEmpty(),
     body("amount").isNumeric(),
-    body("paymentMethod").optional().isIn(["CARD", "COD"]),
+    body("paymentMethod").optional().isIn(["CARD", "COD", "PAYPAL"]),
   ],
   paymentController.processPayment
+);
+
+// Create PayPal order
+router.post(
+  "/paypal/create-order",
+  [
+    body("orderId").notEmpty(),
+    body("amount").isFloat({ min: 0 }),
+    body("userId").notEmpty(),
+  ],
+  paymentController.createPayPalOrder
+);
+
+// Capture PayPal payment
+router.post(
+  "/paypal/capture",
+  [body("paypalOrderId").notEmpty()],
+  paymentController.capturePayPalPayment
 );
 
 // Handle Stripe webhook

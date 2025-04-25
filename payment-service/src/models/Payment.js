@@ -5,6 +5,10 @@ const paymentSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  userId: {
+    type: String,
+    required: true,
+  },
   amount: {
     type: Number,
     required: true,
@@ -20,8 +24,20 @@ const paymentSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
+    enum: ["CARD", "COD", "PAYPAL"],
     required: true,
   },
+  // For Stripe payments
+  stripePaymentIntentId: String,
+  stripeCustomerId: String,
+
+  // For PayPal payments
+  paypalOrderId: String,
+  paypalPaymentId: String,
+
+  // For error tracking
+  error: String,
+
   createdAt: {
     type: Date,
     default: Date.now,
