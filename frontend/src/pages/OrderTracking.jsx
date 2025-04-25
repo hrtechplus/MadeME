@@ -204,11 +204,12 @@ function OrderTracking() {
         </Alert>
       )}
 
-      {order.status === "VERIFYING" && (
+      {order.status === "VERIFYING" || order.status === "PREPARING" ? (
         <Box sx={{ mb: 3 }}>
           <Alert severity="info" sx={{ mb: 2 }}>
-            Your order is being verified. You can cancel it at this stage if
-            needed.
+            {order.status === "VERIFYING"
+              ? "Your order is being verified. You can cancel it at this stage if needed."
+              : "Your order is being prepared. You can still cancel it at this stage if needed."}
           </Alert>
           <Button
             variant="contained"
@@ -219,7 +220,7 @@ function OrderTracking() {
             Cancel Order
           </Button>
         </Box>
-      )}
+      ) : null}
 
       <Grid container spacing={3}>
         <Grid item xs={12}>

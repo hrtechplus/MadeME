@@ -206,11 +206,12 @@ exports.cancelOrder = async (req, res) => {
         .json({ message: "Not authorized to cancel this order" });
     }
 
-    // Only allow cancellation if order is in VERIFYING status
-    if (order.status !== "VERIFYING") {
+    // Only allow cancellation if order is in VERIFYING or PREPARING status
+    if (order.status !== "VERIFYING" && order.status !== "PREPARING") {
       return res.status(400).json({
         message: "Order cannot be cancelled",
-        details: "Orders can only be cancelled while in verifying status",
+        details:
+          "Orders can only be cancelled while in verifying or preparing status",
       });
     }
 
