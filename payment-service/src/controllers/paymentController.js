@@ -3,7 +3,7 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const axios = require("axios");
 const { validationResult } = require("express-validator");
 
-// Create payment intent
+// Create payment intent for Stripe
 exports.createPaymentIntent = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -19,6 +19,7 @@ exports.createPaymentIntent = async (req, res) => {
       userId,
       amount,
       status: "PENDING",
+      paymentMethod: "CARD",
     });
 
     // Create a Stripe customer if not exists
@@ -55,9 +56,116 @@ exports.createPaymentIntent = async (req, res) => {
       paymentId: payment._id,
     });
   } catch (error) {
+    console.error("Error creating payment intent:", error);
     res
       .status(500)
       .json({ message: "Error creating payment intent", error: error.message });
+  }
+};
+
+// Handle Cash on Delivery payment
+exports.processCODPayment = async (req, res) => {
+  try {
+    const { orderId, amount, userId } = req.body;
+
+    if (!orderId || !amount) {
+      return res
+        .status(400)
+        .json({ message: "Order ID and amount are required" });
+    }
+
+    // Create a payment record for COD
+    const payment = new Payment({
+      orderId,
+      userId: userId || req.body.userId || "guest-user",
+      amount,
+      status: "PENDING",
+      paymentMethod: "COD",
+      transactionId: `cod_${Date.now()}`,
+    });
+
+    await payment.save();
+
+    // Notify the order service to update order status
+    try {
+      await axios.patch(
+        `${process.env.ORDER_SERVICE_URL}/api/order/${orderId}/status`,
+        {
+          status: "CONFIRMED",
+        }
+      );
+    } catch (orderError) {
+      console.error("Error updating order status:", orderError);
+      // Continue processing even if order update fails
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "COD payment processed successfully",
+      paymentId: payment._id,
+    });
+  } catch (error) {
+    console.error("Error processing COD payment:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error processing COD payment",
+      error: error.message,
+    });
+  }
+};
+
+// Process payment (handles both card and COD)
+exports.processPayment = async (req, res) => {
+  try {
+    const { orderId, amount, paymentMethod, cardDetails } = req.body;
+
+    // Validate required fields
+    if (!orderId || !amount) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // Handle different payment methods
+    if (paymentMethod === "COD") {
+      return this.processCODPayment(req, res);
+    }
+
+    // For card payments, process using the mock payment function
+    const paymentResult = await processPayment({
+      orderId,
+      amount,
+      cardDetails,
+    });
+
+    // Create payment record
+    const payment = new Payment({
+      orderId,
+      amount,
+      status: paymentResult.success ? "COMPLETED" : "FAILED",
+      transactionId: paymentResult.transactionId,
+      paymentMethod: "CARD",
+    });
+
+    await payment.save();
+
+    if (paymentResult.success) {
+      res.status(200).json({
+        success: true,
+        paymentId: payment._id,
+        transactionId: payment.transactionId,
+        message: "Payment processed successfully",
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: paymentResult.message,
+      });
+    }
+  } catch (error) {
+    console.error("Payment error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error processing payment",
+    });
   }
 };
 
@@ -172,53 +280,4 @@ const processPayment = async (paymentData) => {
       ? "Payment successful"
       : "Payment failed - Insufficient funds",
   };
-};
-
-exports.createPayment = async (req, res) => {
-  try {
-    const { orderId, amount, cardDetails } = req.body;
-
-    // Validate required fields
-    if (!orderId || !amount || !cardDetails) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
-
-    // Process payment
-    const paymentResult = await processPayment({
-      orderId,
-      amount,
-      cardDetails,
-    });
-
-    // Create payment record
-    const payment = new Payment({
-      orderId,
-      amount,
-      status: paymentResult.success ? "COMPLETED" : "FAILED",
-      transactionId: paymentResult.transactionId,
-      paymentMethod: "CARD",
-    });
-
-    await payment.save();
-
-    if (paymentResult.success) {
-      res.status(200).json({
-        success: true,
-        paymentId: payment._id,
-        transactionId: payment.transactionId,
-        message: "Payment processed successfully",
-      });
-    } else {
-      res.status(400).json({
-        success: false,
-        message: paymentResult.message,
-      });
-    }
-  } catch (error) {
-    console.error("Payment error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error processing payment",
-    });
-  }
 };

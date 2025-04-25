@@ -111,28 +111,32 @@ const Checkout = () => {
       const orderResult = await orderResponse.json();
       console.log("Order created successfully:", orderResult);
 
-      // Clear cart after successful order creation with better error handling
+      // Try to clear cart but don't let it stop the checkout process if it fails
       try {
+        console.log(`Attempting to clear cart for user ${userId}`);
         const deleteCartResponse = await fetch(
           `http://localhost:5002/api/cart/${userId}`,
           {
             method: "DELETE",
+            // Set a timeout to prevent long waiting if service is down
+            signal: AbortSignal.timeout(2000), // 2 second timeout
           }
         );
 
-        if (!deleteCartResponse.ok) {
-          console.warn(
-            "Warning: Failed to clear cart, but order was created successfully."
-          );
-          // Don't throw error here, just log it and continue
-        } else {
+        if (deleteCartResponse.ok) {
           console.log("Cart cleared successfully");
+        } else {
+          console.warn(
+            `Failed to clear cart: HTTP ${deleteCartResponse.status}`
+          );
         }
       } catch (cartError) {
-        // Log error but don't fail the whole checkout process
-        console.error("Error clearing cart:", cartError);
-        // We still want to continue to payment even if cart clearing fails
+        // Just log the cart error but continue with checkout
+        console.error("Error clearing cart (ignoring):", cartError.message);
       }
+
+      // Manually clear cart state in frontend for better UX even if backend fails
+      setCart([]);
 
       showToast("Order created successfully", "success");
 

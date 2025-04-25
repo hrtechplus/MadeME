@@ -13,7 +13,7 @@ router.use((req, res, next) => {
   }
 });
 
-// Create payment intent
+// Create payment intent for Stripe
 router.post(
   "/initiate",
   [
@@ -25,15 +25,15 @@ router.post(
   paymentController.createPaymentIntent
 );
 
-// Process payment (direct payment without Stripe)
+// Process payment (handles both card and COD)
 router.post(
   "/process",
   [
     body("orderId").notEmpty(),
     body("amount").isNumeric(),
-    body("cardDetails").isObject(),
+    body("paymentMethod").optional().isIn(["CARD", "COD"]),
   ],
-  paymentController.createPayment
+  paymentController.processPayment
 );
 
 // Handle Stripe webhook
@@ -44,6 +44,6 @@ router.post(
 );
 
 // Get payment status
-router.get("/order/:orderId", paymentController.getPaymentStatus);
+router.get("/:paymentId", paymentController.getPaymentStatus);
 
 module.exports = router;
