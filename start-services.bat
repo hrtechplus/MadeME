@@ -1,5 +1,5 @@
 @echo off
-echo Starting MadeME Food Delivery System...
+echo Starting MadeME[SLIIT] Food...
 
 echo.
 echo Option 1: Run with Docker Compose (recommended)

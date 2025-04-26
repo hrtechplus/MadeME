@@ -14,6 +14,9 @@ router.get(
   orderController.getAllOrders
 );
 
+// Get order by ID
+router.get("/:id", orderController.getOrderById);
+
 // Create new order
 router.post(
   "/",
@@ -30,6 +33,9 @@ router.post(
   ],
   orderController.createOrder
 );
+
+// Update order (admin only)
+router.put("/:id", verifyToken, verifyAdmin, orderController.updateOrder);
 
 // Update order status
 router.patch(
@@ -56,6 +62,9 @@ router.post(
   [body("cancellationReason").optional().isString()],
   orderController.cancelOrder
 );
+
+// Delete order (admin only)
+router.delete("/:id", verifyToken, verifyAdmin, orderController.deleteOrder);
 
 // Handle restaurant response
 router.post(

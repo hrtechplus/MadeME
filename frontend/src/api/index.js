@@ -82,6 +82,14 @@ export const orderApi = {
     orderClient.get(`/orders/restaurant/${restaurantId}`),
   assignDriver: (orderId, driverId) =>
     orderClient.post(`/orders/${orderId}/assign-driver`, { driverId }),
+  // Admin-specific endpoints
+  getAllOrders: (filters = {}) =>
+    orderClient.get("/admin/all", { params: filters }),
+  updateOrder: (orderId, orderData) =>
+    orderClient.put(`/${orderId}`, orderData),
+  deleteOrder: (orderId) => orderClient.delete(`/${orderId}`),
+  cancelOrder: (orderId, cancellationReason) =>
+    orderClient.post(`/${orderId}/cancel`, { cancellationReason }),
 };
 
 // Payment API functions

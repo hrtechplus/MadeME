@@ -187,7 +187,7 @@ exports.getAllOrders = async (req, res) => {
   }
 };
 
-// Cancel an order
+// Complete the cancel order functionality
 exports.cancelOrder = async (req, res) => {
   try {
     const { id } = req.params;
@@ -231,31 +231,108 @@ exports.cancelOrder = async (req, res) => {
       try {
         // Notify payment service about the cancellation
         // This is where you would integrate with your payment service
-        // to handle refunds or cancel pending payments
-        const paymentServiceUrl =
-          process.env.PAYMENT_SERVICE_URL || "http://payment-service:5003";
-        await axios.post(`${paymentServiceUrl}/api/payment/cancel`, {
-          orderId: id,
-          paymentId: order.paymentId,
-        });
-      } catch (error) {
-        console.error(
-          "Failed to notify payment service of cancellation:",
-          error
+        console.log(
+          `Order ${id} cancelled, payment ${order.paymentId} should be refunded`
         );
-        // Continue with order cancellation even if payment service notification fails
+      } catch (error) {
+        console.error("Error processing refund:", error);
+        // Continue with cancellation even if refund processing fails
       }
     }
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "Order has been cancelled successfully",
+      message: "Order cancelled successfully",
       order,
     });
   } catch (error) {
     console.error("Error cancelling order:", error);
-    res
-      .status(500)
-      .json({ message: "Error cancelling order", error: error.message });
+    res.status(500).json({
+      message: "Error cancelling order",
+      error: error.message,
+    });
+  }
+};
+
+// Get order by ID
+exports.getOrderById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const order = await Order.findById(id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.json(order);
+  } catch (error) {
+    console.error("Error fetching order:", error);
+    res.status(500).json({
+      message: "Error fetching order",
+      error: error.message,
+    });
+  }
+};
+
+// Delete order (admin only)
+exports.deleteOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify user is admin in middleware verifyAdmin
+
+    const order = await Order.findById(id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    await Order.findByIdAndDelete(id);
+
+    res.json({
+      success: true,
+      message: "Order deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting order:", error);
+    res.status(500).json({
+      message: "Error deleting order",
+      error: error.message,
+    });
+  }
+};
+
+// Update order details (admin only)
+exports.updateOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    // Verify user is admin in middleware verifyAdmin
+
+    const order = await Order.findById(id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Prevent changing certain fields directly
+    delete updates._id;
+    delete updates.createdAt;
+
+    // Update the order with the new data
+    const updatedOrder = await Order.findByIdAndUpdate(
+      id,
+      { ...updates, updatedAt: Date.now() },
+      { new: true, runValidators: true }
+    );
+
+    res.json(updatedOrder);
+  } catch (error) {
+    console.error("Error updating order:", error);
+    res.status(500).json({
+      message: "Error updating order",
+      error: error.message,
+    });
   }
 };

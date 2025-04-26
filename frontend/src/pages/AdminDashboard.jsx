@@ -122,6 +122,22 @@ const CloseIcon = () => (
   </svg>
 );
 
+const AddIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+);
+
 // Loading Spinner Component
 const LoadingSpinner = () => (
   <div className="loading">
@@ -261,6 +277,33 @@ const AdminDashboard = () => {
   const [showRestaurantModal, setShowRestaurantModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [restaurantForm, setRestaurantForm] = useState({});
+
+  // Order state variables
+  const [orderForm, setOrderForm] = useState({
+    userId: "",
+    restaurantId: "",
+    items: [],
+    total: 0,
+    status: "PENDING",
+    deliveryAddress: {
+      street: "",
+      city: "",
+      state: "",
+      zipCode: "",
+    },
+  });
+  const [tempOrderItem, setTempOrderItem] = useState({
+    itemId: "",
+    name: "",
+    price: 0,
+    quantity: 1,
+  });
+  const [orderEditMode, setOrderEditMode] = useState(false);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+  const [orderDeleteConfirmation, setOrderDeleteConfirmation] = useState({
+    show: false,
+    orderId: null,
+  });
 
   const { serviceUrls, handleApiCall } = useApi();
   const { showToast } = useToast();
@@ -822,7 +865,7 @@ const AdminDashboard = () => {
     );
   };
 
-  // Render the Orders Tab content
+  // Render the Orders Tab content with enhanced CRUD functionality
   const renderOrdersTab = () => (
     <>
       <h2>Order Management</h2>
@@ -841,6 +884,7 @@ const AdminDashboard = () => {
             <option value="OUT_FOR_DELIVERY">Out For Delivery</option>
             <option value="DELIVERED">Delivered</option>
             <option value="REJECTED">Rejected</option>
+            <option value="CANCELLED">Cancelled</option>
           </select>
         </div>
 
@@ -867,13 +911,24 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <button
-          className="refresh-btn"
-          onClick={fetchOrders}
-          aria-label="Refresh orders"
-        >
-          <RefreshIcon /> Refresh
-        </button>
+        <div className="action-buttons">
+          <button
+            className="refresh-btn"
+            onClick={fetchOrders}
+            aria-label="Refresh orders"
+          >
+            <RefreshIcon /> Refresh
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              resetOrderForm();
+              setShowNewOrderModal(true);
+            }}
+          >
+            <AddIcon /> Create Order
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -914,6 +969,36 @@ const AdminDashboard = () => {
                           >
                             <ViewIcon /> View
                           </button>
+                          <button
+                            onClick={() => {
+                              setSelectedOrder(order);
+                              setOrderForm({
+                                ...order,
+                                // Ensure we're not sending extra properties to the API
+                                _id: undefined,
+                                createdAt: undefined,
+                                updatedAt: undefined,
+                              });
+                              setOrderEditMode(true);
+                              setShowModal(true);
+                            }}
+                            className="btn btn-primary"
+                            aria-label="Edit order"
+                          >
+                            <EditIcon /> Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              setOrderDeleteConfirmation({
+                                show: true,
+                                orderId: order._id,
+                              });
+                            }}
+                            className="btn btn-danger"
+                            aria-label="Delete order"
+                          >
+                            Delete
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -944,6 +1029,45 @@ const AdminDashboard = () => {
           />
         </>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={orderDeleteConfirmation.show}
+        onClose={() =>
+          setOrderDeleteConfirmation({ show: false, orderId: null })
+        }
+        title="Confirm Deletion"
+      >
+        <div className="confirmation-modal">
+          <p>Are you sure you want to delete this order?</p>
+          <p className="warning">This action cannot be undone.</p>
+          <div className="form-actions">
+            <button
+              className="btn btn-secondary"
+              onClick={() =>
+                setOrderDeleteConfirmation({ show: false, orderId: null })
+              }
+            >
+              Cancel
+            </button>
+            <button
+              className="btn btn-danger"
+              onClick={() => handleDeleteOrder(orderDeleteConfirmation.orderId)}
+            >
+              Delete Order
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Create New Order Modal */}
+      <Modal
+        isOpen={showNewOrderModal}
+        onClose={() => setShowNewOrderModal(false)}
+        title="Create New Order"
+      >
+        {renderOrderForm(false)}
+      </Modal>
     </>
   );
 
@@ -1333,6 +1457,243 @@ const AdminDashboard = () => {
       )}
     </>
   );
+
+  // Render the Order Form
+  const renderOrderForm = (isEditMode) => {
+    return (
+      <form onSubmit={handleSubmitOrderForm} className="order-form">
+        <div className="form-grid">
+          <div className="form-column">
+            <div className="form-group">
+              <label htmlFor="userId">Customer ID</label>
+              <input
+                id="userId"
+                type="text"
+                name="userId"
+                value={orderForm.userId}
+                onChange={handleOrderFormChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="restaurantId">Restaurant ID</label>
+              <input
+                id="restaurantId"
+                type="text"
+                name="restaurantId"
+                value={orderForm.restaurantId}
+                onChange={handleOrderFormChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="status">Order Status</label>
+              <select
+                id="status"
+                name="status"
+                value={orderForm.status}
+                onChange={handleOrderFormChange}
+                required
+              >
+                <option value="PENDING">Pending</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="PREPARING">Preparing</option>
+                <option value="OUT_FOR_DELIVERY">Out For Delivery</option>
+                <option value="DELIVERED">Delivered</option>
+                <option value="REJECTED">Rejected</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+
+            <div className="form-section">
+              <h3>Delivery Address</h3>
+              <div className="form-group">
+                <label htmlFor="street">Street</label>
+                <input
+                  id="street"
+                  type="text"
+                  name="deliveryAddress.street"
+                  value={orderForm.deliveryAddress.street}
+                  onChange={handleOrderFormChange}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="city">City</label>
+                <input
+                  id="city"
+                  type="text"
+                  name="deliveryAddress.city"
+                  value={orderForm.deliveryAddress.city}
+                  onChange={handleOrderFormChange}
+                  required
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="state">State</label>
+                  <input
+                    id="state"
+                    type="text"
+                    name="deliveryAddress.state"
+                    value={orderForm.deliveryAddress.state}
+                    onChange={handleOrderFormChange}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="zipCode">ZIP Code</label>
+                  <input
+                    id="zipCode"
+                    type="text"
+                    name="deliveryAddress.zipCode"
+                    value={orderForm.deliveryAddress.zipCode}
+                    onChange={handleOrderFormChange}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="form-column">
+            <div className="form-section">
+              <h3>Order Items</h3>
+
+              <div className="order-items-table">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Item Name</th>
+                      <th>Price</th>
+                      <th>Quantity</th>
+                      <th>Subtotal</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orderForm.items.length > 0 ? (
+                      orderForm.items.map((item) => (
+                        <tr key={item.itemId}>
+                          <td>{item.name}</td>
+                          <td>${item.price.toFixed(2)}</td>
+                          <td>{item.quantity}</td>
+                          <td>${(item.price * item.quantity).toFixed(2)}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="btn btn-danger btn-sm"
+                              onClick={() =>
+                                removeItemFromOrderForm(item.itemId)
+                              }
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="5" className="empty-message">
+                          No items in order. Please add at least one item.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan="3" style={{ textAlign: "right" }}>
+                        <strong>Order Total:</strong>
+                      </td>
+                      <td colSpan="2">
+                        <strong>${orderForm.total.toFixed(2)}</strong>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              <div className="add-item-section">
+                <h4>Add Item</h4>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="name">Item Name</label>
+                    <input
+                      id="name"
+                      type="text"
+                      name="name"
+                      value={tempOrderItem.name}
+                      onChange={handleOrderItemChange}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="price">Price</label>
+                    <input
+                      id="price"
+                      type="number"
+                      name="price"
+                      min="0.01"
+                      step="0.01"
+                      value={tempOrderItem.price}
+                      onChange={handleOrderItemChange}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="quantity">Quantity</label>
+                    <input
+                      id="quantity"
+                      type="number"
+                      name="quantity"
+                      min="1"
+                      step="1"
+                      value={tempOrderItem.quantity}
+                      onChange={handleOrderItemChange}
+                    />
+                  </div>
+                  <div className="form-group" style={{ alignSelf: "flex-end" }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={addItemToOrderForm}
+                    >
+                      Add Item
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="form-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => {
+              if (isEditMode) {
+                setShowModal(false);
+                setOrderEditMode(false);
+                setSelectedOrder(null);
+              } else {
+                setShowNewOrderModal(false);
+              }
+              resetOrderForm();
+            }}
+          >
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-primary">
+            {isEditMode ? "Update Order" : "Create Order"}
+          </button>
+        </div>
+      </form>
+    );
+  };
 
   // Render the Order Details Modal content
   const renderOrderDetailsContent = () => {
@@ -1997,6 +2358,249 @@ const AdminDashboard = () => {
     }
 
     return null;
+  };
+
+  // Order CRUD functions
+  const handleOrderFormChange = (e) => {
+    const { name, value } = e.target;
+
+    // Handle nested properties like deliveryAddress.city
+    if (name.includes(".")) {
+      const [parent, child] = name.split(".");
+      setOrderForm({
+        ...orderForm,
+        [parent]: {
+          ...orderForm[parent],
+          [child]: value,
+        },
+      });
+    } else {
+      setOrderForm({ ...orderForm, [name]: value });
+    }
+  };
+
+  const handleOrderItemChange = (e) => {
+    const { name, value } = e.target;
+    setTempOrderItem({
+      ...tempOrderItem,
+      [name]: name === "price" || name === "quantity" ? Number(value) : value,
+    });
+  };
+
+  const addItemToOrderForm = () => {
+    if (
+      !tempOrderItem.name ||
+      tempOrderItem.price <= 0 ||
+      tempOrderItem.quantity < 1
+    ) {
+      showToast("Please fill in all item fields correctly", "error");
+      return;
+    }
+
+    // Generate a temporary ID if not provided
+    const itemWithId = {
+      ...tempOrderItem,
+      itemId: tempOrderItem.itemId || `temp-${Date.now()}`,
+    };
+
+    // Add item to order form
+    const updatedItems = [...orderForm.items, itemWithId];
+
+    // Recalculate total
+    const newTotal = updatedItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+
+    setOrderForm({
+      ...orderForm,
+      items: updatedItems,
+      total: newTotal,
+    });
+
+    // Reset the temp item form
+    setTempOrderItem({
+      itemId: "",
+      name: "",
+      price: 0,
+      quantity: 1,
+    });
+  };
+
+  const removeItemFromOrderForm = (itemId) => {
+    const updatedItems = orderForm.items.filter(
+      (item) => item.itemId !== itemId
+    );
+
+    // Recalculate total
+    const newTotal = updatedItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+
+    setOrderForm({
+      ...orderForm,
+      items: updatedItems,
+      total: newTotal,
+    });
+  };
+
+  const handleSubmitOrderForm = async (e) => {
+    e.preventDefault();
+
+    if (orderForm.items.length === 0) {
+      showToast("Order must have at least one item", "error");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      if (orderEditMode) {
+        await updateOrder();
+      } else {
+        await createOrder();
+      }
+
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      console.error("Error submitting order form:", error);
+      showToast("Error submitting order form", "error");
+    }
+  };
+
+  const createOrder = async () => {
+    try {
+      const response = await handleApiCall(
+        fetch(`${serviceUrls.order}/api/orders`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+          body: JSON.stringify(orderForm),
+        })
+      );
+
+      showToast("Order created successfully", "success");
+
+      // Add new order to state
+      setOrders([response.data, ...orders]);
+
+      // Close modal and reset form
+      setShowNewOrderModal(false);
+      resetOrderForm();
+    } catch (error) {
+      console.error("Error creating order:", error);
+      showToast("Failed to create order", "error");
+    }
+  };
+
+  const updateOrder = async () => {
+    try {
+      const response = await handleApiCall(
+        fetch(`${serviceUrls.order}/api/orders/${selectedOrder._id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+          body: JSON.stringify(orderForm),
+        })
+      );
+
+      showToast("Order updated successfully", "success");
+
+      // Update order in state
+      setOrders(
+        orders.map((order) =>
+          order._id === selectedOrder._id ? { ...order, ...orderForm } : order
+        )
+      );
+
+      // Close modal and reset edit mode
+      setShowModal(false);
+      setOrderEditMode(false);
+      setSelectedOrder(null);
+      resetOrderForm();
+    } catch (error) {
+      console.error("Error updating order:", error);
+      showToast("Failed to update order", "error");
+    }
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    try {
+      setLoading(true);
+
+      await handleApiCall(
+        fetch(`${serviceUrls.order}/api/orders/${orderId}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+        })
+      );
+
+      showToast("Order deleted successfully", "success");
+
+      // Remove deleted order from state
+      setOrders(orders.filter((order) => order._id !== orderId));
+
+      // Close confirmation modal
+      setOrderDeleteConfirmation({ show: false, orderId: null });
+
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      console.error("Error deleting order:", error);
+      showToast("Failed to delete order", "error");
+    }
+  };
+
+  const resetOrderForm = () => {
+    setOrderForm({
+      userId: "",
+      restaurantId: "",
+      items: [],
+      total: 0,
+      status: "PENDING",
+      deliveryAddress: {
+        street: "",
+        city: "",
+        state: "",
+        zipCode: "",
+      },
+    });
+    setTempOrderItem({
+      itemId: "",
+      name: "",
+      price: 0,
+      quantity: 1,
+    });
+  };
+
+  const prepareOrderEdit = (order) => {
+    setOrderForm({
+      userId: order.userId,
+      restaurantId: order.restaurantId,
+      items: [...order.items],
+      total: order.total,
+      status: order.status,
+      deliveryAddress: {
+        street: order.deliveryAddress?.street || "",
+        city: order.deliveryAddress?.city || "",
+        state: order.deliveryAddress?.state || "",
+        zipCode: order.deliveryAddress?.zipCode || "",
+      },
+    });
+    setSelectedOrder(order);
+    setOrderEditMode(true);
+    setShowModal(true);
   };
 
   return (
