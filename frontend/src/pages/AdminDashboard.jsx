@@ -1011,7 +1011,25 @@ const AdminDashboard = () => {
                   currentOrders.map((order) => (
                     <tr key={order._id}>
                       <td>{order._id.substring(0, 8)}...</td>
-                      <td>{order.userId}</td>
+                      <td>
+                        {usersCache[order.userId] ? (
+                          <div className="user-info">
+                            <div className="user-name">
+                              {usersCache[order.userId].name}
+                            </div>
+                            <div className="user-email small">
+                              {usersCache[order.userId].email}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="user-info">
+                            <div className="user-id">{order.userId}</div>
+                            <div className="loading-user small">
+                              Loading user details...
+                            </div>
+                          </div>
+                        )}
+                      </td>
                       <td>{formatDate(order.createdAt)}</td>
                       <td>{order.items.length} items</td>
                       <td>{formatCurrency(order.total)}</td>
@@ -1782,19 +1800,53 @@ const AdminDashboard = () => {
 
           <div className="info-section">
             <h3>Customer Information</h3>
-            <p>
-              <strong>User ID:</strong> {selectedOrder.userId}
-            </p>
-            <p>
-              <strong>Delivery Address:</strong>
-            </p>
-            <div className="address-details">
-              {selectedOrder.deliveryAddress.street}
-              <br />
-              {selectedOrder.deliveryAddress.city},{" "}
-              {selectedOrder.deliveryAddress.state}{" "}
-              {selectedOrder.deliveryAddress.zipCode}
-            </div>
+            {usersCache[selectedOrder.userId] ? (
+              <>
+                <p>
+                  <strong>Name:</strong> {usersCache[selectedOrder.userId].name}
+                </p>
+                <p>
+                  <strong>Email:</strong>{" "}
+                  {usersCache[selectedOrder.userId].email}
+                </p>
+                <p>
+                  <strong>Phone:</strong>{" "}
+                  {usersCache[selectedOrder.userId].phone || "N/A"}
+                </p>
+                <p>
+                  <strong>User ID:</strong> {selectedOrder.userId}
+                </p>
+                <p>
+                  <strong>Delivery Address:</strong>
+                </p>
+                <div className="address-details">
+                  {selectedOrder.deliveryAddress.street}
+                  <br />
+                  {selectedOrder.deliveryAddress.city},{" "}
+                  {selectedOrder.deliveryAddress.state}{" "}
+                  {selectedOrder.deliveryAddress.zipCode}
+                </div>
+              </>
+            ) : (
+              <>
+                <p>
+                  <strong>User ID:</strong> {selectedOrder.userId}
+                </p>
+                <p>
+                  <em>Loading user details...</em>
+                </p>
+                <p>
+                  <strong>Delivery Address:</strong>
+                </p>
+                <div className="address-details">
+                  {selectedOrder.deliveryAddress.street}
+                  <br />
+                  {selectedOrder.deliveryAddress.city},{" "}
+                  {selectedOrder.deliveryAddress.state}{" "}
+                  {selectedOrder.deliveryAddress.zipCode}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -2464,7 +2516,7 @@ const AdminDashboard = () => {
     // Add item to order form
     const updatedItems = [...orderForm.items, itemWithId];
 
-    // Recalculate total
+    // Recalculatetotal
     const newTotal = updatedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
@@ -2486,7 +2538,7 @@ const AdminDashboard = () => {
   };
 
   const removeItemFromOrderForm = (itemId) => {
-    const updatedItems =orderForm.items.filter(
+    const updatedItems = orderForm.items.filter(
       (item) => item.itemId !== itemId
     );
 
@@ -2664,7 +2716,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     // After orders are fetched, load user details for each order
     if (orders.length > 0 && activeTab === "orders") {
-      orders.forEach(order => {
+      orders.forEach((order) => {
         if (order.userId && !usersCache[order.userId]) {
           fetchUserDetails(order.userId);
         }
