@@ -253,6 +253,9 @@ const AdminDashboard = () => {
     status: "all",
   });
 
+  // New state for storing user details
+  const [usersCache, setUsersCache] = useState({});
+
   // Orders pagination states
   const [orderCurrentPage, setOrderCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -307,6 +310,55 @@ const AdminDashboard = () => {
 
   const { serviceUrls, handleApiCall } = useApi();
   const { showToast } = useToast();
+
+  // Function to fetch user details and update the cache
+  const fetchUserDetails = async (userId) => {
+    // Check if user details already exist in cache
+    if (usersCache[userId]) {
+      return usersCache[userId];
+    }
+
+    try {
+      const response = await handleApiCall(
+        fetch(`${serviceUrls.user}/api/users/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+        })
+      );
+
+      if (response.user) {
+        // Update users cache
+        setUsersCache((prevCache) => ({
+          ...prevCache,
+          [userId]: response.user,
+        }));
+        return response.user;
+      }
+      return null;
+    } catch (error) {
+      console.error(`Error fetching user ${userId} details:`, error);
+      return null;
+    }
+  };
+
+  // Function to get user display info
+  const getUserDisplayInfo = (userId) => {
+    const user = usersCache[userId];
+    if (user) {
+      return {
+        displayName: user.name || "Unknown",
+        email: user.email || "",
+        phone: user.phone || "N/A",
+      };
+    }
+    return {
+      displayName: "Loading...",
+      email: "",
+      phone: "N/A",
+    };
+  };
 
   useEffect(() => {
     if (activeTab === "orders") {
@@ -576,9 +628,15 @@ const AdminDashboard = () => {
     }
   };
 
+  // Update user cache when viewing order details
   const viewOrderDetails = (order) => {
     setSelectedOrder(order);
     setShowModal(true);
+
+    // Fetch user details for the order if not already in cache
+    if (order.userId && !usersCache[order.userId]) {
+      fetchUserDetails(order.userId);
+    }
   };
 
   const viewPaymentDetails = (payment) => {
@@ -2428,7 +2486,7 @@ const AdminDashboard = () => {
   };
 
   const removeItemFromOrderForm = (itemId) => {
-    const updatedItems = orderForm.items.filter(
+    const updatedItems =orderForm.items.filter(
       (item) => item.itemId !== itemId
     );
 
@@ -2602,6 +2660,17 @@ const AdminDashboard = () => {
     setOrderEditMode(true);
     setShowModal(true);
   };
+
+  useEffect(() => {
+    // After orders are fetched, load user details for each order
+    if (orders.length > 0 && activeTab === "orders") {
+      orders.forEach(order => {
+        if (order.userId && !usersCache[order.userId]) {
+          fetchUserDetails(order.userId);
+        }
+      });
+    }
+  }, [orders, activeTab]);
 
   return (
     <div className="admin-dashboard">
