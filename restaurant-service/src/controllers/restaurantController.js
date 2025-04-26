@@ -155,6 +155,11 @@ exports.getRestaurantsByOwner = async (req, res) => {
   try {
     const ownerId = req.params.ownerId || req.userId;
 
+    // Validate ownerId
+    if (!ownerId) {
+      return res.status(400).json({ message: "Owner ID is required" });
+    }
+
     // Verify authorization
     if (req.userRole !== "admin" && ownerId !== req.userId) {
       return res
@@ -163,7 +168,12 @@ exports.getRestaurantsByOwner = async (req, res) => {
     }
 
     const restaurants = await Restaurant.find({ ownerId });
-    res.json(restaurants);
+
+    // Return appropriate response even if no restaurants found
+    res.json({
+      count: restaurants.length,
+      restaurants,
+    });
   } catch (error) {
     console.error("Error fetching owner restaurants:", error);
     res.status(500).json({

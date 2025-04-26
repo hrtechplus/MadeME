@@ -17,6 +17,7 @@ import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import RestaurantList from "./pages/RestaurantList";
 import RestaurantMenu from "./pages/RestaurantMenu";
+import RestaurantManagement from "./pages/RestaurantManagement";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import OrderHistory from "./pages/OrderHistory";
@@ -311,6 +312,14 @@ function AppContent() {
               <AdminRoute>
                 <AdminDashboard />
               </AdminRoute>
+            }
+          />
+          <Route
+            path="/my-restaurants"
+            element={
+              <ProtectedRoute>
+                <RestaurantManagement />
+              </ProtectedRoute>
             }
           />
           {/* Login and register routes */}

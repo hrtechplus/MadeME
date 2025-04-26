@@ -51,6 +51,7 @@ function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isRestaurantOwner, setIsRestaurantOwner] = useState(false);
   const [userName, setUserName] = useState("");
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -63,6 +64,10 @@ function Navbar() {
     setIsAuthenticated(!!token);
     setIsAdmin(role === "admin");
     setUserName(name || "User");
+
+    // Check if the user is a restaurant owner
+    const isRestaurantOwner = role === "restaurant_owner";
+    setIsRestaurantOwner(isRestaurantOwner);
 
     // Handle scroll effect
     const handleScroll = () => {
@@ -114,6 +119,13 @@ function Navbar() {
         label: "Dashboard",
         icon: <Dashboard sx={{ mr: 1 }} />,
         path: "/admin/dashboard",
+      });
+    }
+    if (isRestaurantOwner) {
+      navItems.push({
+        label: "My Restaurants",
+        icon: <Restaurant sx={{ mr: 1 }} />,
+        path: "/my-restaurants",
       });
     }
   }
@@ -332,6 +344,19 @@ function Navbar() {
                   >
                     <Dashboard sx={{ mr: 1, fontSize: 20 }} />
                     <Typography variant="body2">Admin Dashboard</Typography>
+                  </MenuItem>
+                )}
+
+                {isRestaurantOwner && (
+                  <MenuItem
+                    onClick={() => {
+                      handleMenuClose();
+                      navigate("/my-restaurants");
+                    }}
+                    sx={{ py: 1.5 }}
+                  >
+                    <Restaurant sx={{ mr: 1, fontSize: 20 }} />
+                    <Typography variant="body2">My Restaurants</Typography>
                   </MenuItem>
                 )}
 
