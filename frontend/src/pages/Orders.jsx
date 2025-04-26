@@ -13,28 +13,15 @@ import {
   CircularProgress,
   Alert,
 } from "@mui/material";
-import axios from "axios";
-
-const api = axios.create({
-  baseURL: "http://localhost:5003/api",
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-// Add request interceptor to add auth token
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+import { useApi } from "../context/ApiContext";
+import { useNavigate } from "react-router-dom";
 
 function Orders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { handleApiCall, serviceUrls } = useApi();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchOrders();
@@ -43,30 +30,32 @@ function Orders() {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      // For development, use mock data
-      const mockOrders = [
-        {
-          id: "1",
-          date: "2024-03-15",
-          restaurant: "Italian Bistro",
-          total: 45.99,
-          status: "Delivered",
-        },
-        {
-          id: "2",
-          date: "2024-03-14",
-          restaurant: "Sushi Master",
-          total: 32.5,
-          status: "Delivered",
-        },
-      ];
-      setOrders(mockOrders);
+      const userId = localStorage.getItem("userId") || "test-user";
+      const response = await handleApiCall(
+        fetch(`${serviceUrls.order}/api/orders/user/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        })
+      );
+
+      if (response && response.data) {
+        setOrders(response.data);
+      } else {
+        setOrders([]);
+      }
     } catch (error) {
       console.error("Error fetching orders:", error);
       setError("Failed to load orders");
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const options = { year: "numeric", month: "short", day: "numeric" };
+    return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
   if (loading) {
@@ -103,30 +92,45 @@ function Orders() {
         Order History
       </Typography>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Order ID</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Restaurant</TableCell>
-              <TableCell>Total</TableCell>
-              <TableCell>Status</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {orders.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell>{order.id}</TableCell>
-                <TableCell>{order.date}</TableCell>
-                <TableCell>{order.restaurant}</TableCell>
-                <TableCell>${order.total.toFixed(2)}</TableCell>
-                <TableCell>{order.status}</TableCell>
+      {orders.length === 0 ? (
+        <Paper elevation={3} sx={{ p: 4, textAlign: "center" }}>
+          <Typography variant="h6" color="text.secondary">
+            You haven't placed any orders yet.
+          </Typography>
+        </Paper>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Order ID</TableCell>
+                <TableCell>Date</TableCell>
+                <TableCell>Restaurant</TableCell>
+                <TableCell>Total</TableCell>
+                <TableCell>Status</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {orders.map((order) => (
+                <TableRow
+                  key={order._id}
+                  hover
+                  onClick={() => navigate(`/order/${order._id}`)}
+                  sx={{ cursor: "pointer" }}
+                >
+                  <TableCell>{order._id.slice(-6)}</TableCell>
+                  <TableCell>{formatDate(order.createdAt)}</TableCell>
+                  <TableCell>{`Restaurant ${order.restaurantId.slice(
+                    -4
+                  )}`}</TableCell>
+                  <TableCell>${order.total.toFixed(2)}</TableCell>
+                  <TableCell>{order.status.replace(/_/g, " ")}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
     </Container>
   );
 }

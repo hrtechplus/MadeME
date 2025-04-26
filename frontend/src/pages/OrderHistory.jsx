@@ -24,6 +24,11 @@ import {
   AccordionSummary,
   AccordionDetails,
   Stack,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material";
 import {
   ExpandMore,
@@ -53,6 +58,10 @@ const OrderHistory = () => {
   const [sortOrder, setSortOrder] = useState("newest");
   const [searchQuery, setSearchQuery] = useState("");
   const [restaurantNames, setRestaurantNames] = useState({});
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusUpdateDialogOpen, setStatusUpdateDialogOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [newStatus, setNewStatus] = useState("");
   const { handleApiCall, serviceUrls } = useApi();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -795,8 +804,21 @@ const OrderHistory = () => {
                         mt: 3,
                         display: "flex",
                         justifyContent: "flex-end",
+                        gap: 2,
                       }}
                     >
+                      {order.status === "PREPARING" && (
+                        <Button
+                          variant="outlined"
+                          color="secondary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStatusUpdateClick(order._id);
+                          }}
+                        >
+                          Update Status
+                        </Button>
+                      )}
                       <Button
                         variant="contained"
                         color="primary"
@@ -813,6 +835,42 @@ const OrderHistory = () => {
           ))
         )}
       </Box>
+
+      {/* Status Update Dialog */}
+      <Dialog open={statusUpdateDialogOpen} onClose={handleCloseStatusDialog}>
+        <DialogTitle>Update Order Status</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Select the new status for this order:
+          </DialogContentText>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel id="new-status-label">New Status</InputLabel>
+            <Select
+              labelId="new-status-label"
+              value={newStatus}
+              onChange={handleStatusChange}
+              label="New Status"
+            >
+              <MenuItem value="CONFIRMED">Confirmed</MenuItem>
+              <MenuItem value="OUT_FOR_DELIVERY">Out For Delivery</MenuItem>
+              <MenuItem value="DELIVERED">Delivered</MenuItem>
+              <MenuItem value="CANCELLED">Cancelled</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseStatusDialog} disabled={isUpdatingStatus}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUpdateStatus}
+            color="primary"
+            disabled={isUpdatingStatus || !newStatus}
+          >
+            {isUpdatingStatus ? "Updating..." : "Update"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

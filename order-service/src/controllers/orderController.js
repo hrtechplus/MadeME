@@ -44,19 +44,75 @@ exports.updateOrderStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
+    // Validate status
+    const validStatuses = [
+      "VERIFYING",
+      "PENDING",
+      "CONFIRMED",
+      "REJECTED",
+      "PREPARING",
+      "OUT_FOR_DELIVERY",
+      "DELIVERED",
+      "CANCELLED",
+    ];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
+
     const order = await Order.findById(id);
+
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
 
+    // Check authorization - allow users to update their own orders
+    // User can only update order if:
+    // 1. They are the user who placed the order AND
+    // 2. The order is in PREPARING state
+    const isUserOrder = req.userId && req.userId === order.userId;
+    const isAdmin = req.role === "admin";
+
+    if (!isAdmin && (!isUserOrder || order.status !== "PREPARING")) {
+      return res.status(403).json({
+        message:
+          "Not authorized to update this order or order is not in a state that can be updated by users",
+      });
+    }
+
+    // Admin can update to any status, but users have limited options
+    if (!isAdmin && isUserOrder) {
+      // Users can only set specific statuses
+      const allowedUserStatuses = [
+        "CONFIRMED",
+        "OUT_FOR_DELIVERY",
+        "DELIVERED",
+        "CANCELLED",
+      ];
+      if (!allowedUserStatuses.includes(status)) {
+        return res.status(400).json({
+          message: "You are not authorized to set this status",
+        });
+      }
+    }
+
+    // Update the status
     order.status = status;
+
+    // If order is cancelled, record the timestamp
+    if (status === "CANCELLED") {
+      order.updatedAt = Date.now();
+    }
+
     await order.save();
 
     res.json(order);
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error updating order status", error: error.message });
+    console.error("Error updating order status:", error);
+    res.status(500).json({
+      message: "Error updating order status",
+      error: error.message,
+    });
   }
 };
 
