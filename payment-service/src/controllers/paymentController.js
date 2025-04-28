@@ -33,6 +33,62 @@ function getPayPalClient() {
   }
 }
 
+// For checking PayPal setup
+exports.checkPayPalSetup = async (req, res) => {
+  try {
+    // Check if PayPal SDK is available
+    if (!paypal) {
+      return res.status(500).json({
+        success: false,
+        message: "PayPal SDK not available",
+        details: "PayPal SDK might not be installed or imported correctly",
+      });
+    }
+
+    // Check for environment variables
+    const clientId = process.env.PAYPAL_CLIENT_ID;
+    const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({
+        success: false,
+        message: "PayPal credentials missing",
+        details:
+          "PAYPAL_CLIENT_ID and/or PAYPAL_CLIENT_SECRET environment variables are not set",
+      });
+    }
+
+    // Try to create a client to verify credentials format
+    try {
+      const environment = new paypal.core.SandboxEnvironment(
+        clientId,
+        clientSecret
+      );
+      const client = new paypal.core.PayPalHttpClient(environment);
+
+      return res.json({
+        success: true,
+        message: "PayPal setup looks good",
+        clientIdLength: clientId.length,
+        clientSecretLength: clientSecret.length,
+      });
+    } catch (setupError) {
+      return res.status(500).json({
+        success: false,
+        message: "Error creating PayPal client with provided credentials",
+        error: setupError.message,
+      });
+    }
+  } catch (error) {
+    logger.error("Error checking PayPal setup:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error checking PayPal setup",
+      error: error.message,
+    });
+  }
+};
+
 // Create payment intent for Stripe
 exports.createPaymentIntent = async (req, res) => {
   try {

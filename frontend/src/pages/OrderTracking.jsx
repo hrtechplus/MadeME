@@ -66,7 +66,7 @@ function OrderTracking() {
   const fetchOrder = async () => {
     try {
       const response = await handleApiCall(
-        fetch(`${serviceUrls.order}/api/orders/${id}`)
+        fetch(`${serviceUrls.order}/api/order/${id}`)
       );
       setOrder(response.data);
     } catch (error) {
@@ -80,7 +80,7 @@ function OrderTracking() {
     setCancelLoading(true);
     try {
       const response = await handleApiCall(
-        fetch(`${serviceUrls.order}/api/orders/${id}/cancel`, {
+        fetch(`${serviceUrls.order}/api/order/${id}/cancel`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

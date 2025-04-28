@@ -106,7 +106,7 @@ function Payment() {
         );
       } else if (paymentMethod === "paypal") {
         // Create a PayPal order
-        const response = await handleApiCall(
+        response = await handleApiCall(
           fetch(`${serviceUrls.payment}/api/payment/paypal/create-order`, {
             method: "POST",
             headers: {
@@ -121,20 +121,14 @@ function Payment() {
           })
         );
 
-        if (
-          response.data &&
-          response.data.success &&
-          response.data.approvalUrl
-        ) {
+        if (response && response.success && response.approvalUrl) {
           // Save order ID to session storage for the return flow
           sessionStorage.setItem("currentOrderId", orderId);
           // Redirect to PayPal for payment approval
-          window.location.href = response.data.approvalUrl;
+          window.location.href = response.approvalUrl;
           return;
         } else {
-          throw new Error(
-            response.data?.message || "Failed to create PayPal order"
-          );
+          throw new Error(response?.message || "Failed to create PayPal order");
         }
       } else if (paymentMethod === "cash") {
         response = await handleApiCall(

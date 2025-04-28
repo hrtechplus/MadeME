@@ -47,6 +47,9 @@ router.post(
   paymentController.createPayPalOrder
 );
 
+// Check PayPal setup (diagnostics)
+router.get("/paypal/check-setup", paymentController.checkPayPalSetup);
+
 // Capture PayPal payment
 router.post(
   "/paypal/capture",

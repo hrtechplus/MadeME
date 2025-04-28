@@ -31,23 +31,26 @@ function Orders() {
     try {
       setLoading(true);
       const userId = localStorage.getItem("userId") || "test-user";
-      const response = await handleApiCall(
-        fetch(`${serviceUrls.order}/api/orders/user/${userId}`, {
+
+      const response = await fetch(
+        `${serviceUrls.order}/api/order/user/${userId}`,
+        {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        })
+        }
       );
 
-      if (response && response.data) {
-        setOrders(response.data);
-      } else {
-        setOrders([]);
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
       }
+
+      const data = await response.json();
+      setOrders(data || []);
+      setLoading(false);
     } catch (error) {
       console.error("Error fetching orders:", error);
-      setError("Failed to load orders");
-    } finally {
+      setError("Failed to load orders. Please try again later.");
       setLoading(false);
     }
   };
@@ -120,9 +123,9 @@ function Orders() {
                 >
                   <TableCell>{order._id.slice(-6)}</TableCell>
                   <TableCell>{formatDate(order.createdAt)}</TableCell>
-                  <TableCell>{`Restaurant ${order.restaurantId.slice(
-                    -4
-                  )}`}</TableCell>
+                  <TableCell>{`Restaurant ${
+                    order.restaurantId ? order.restaurantId.slice(-4) : "N/A"
+                  }`}</TableCell>
                   <TableCell>${order.total.toFixed(2)}</TableCell>
                   <TableCell>{order.status.replace(/_/g, " ")}</TableCell>
                 </TableRow>
