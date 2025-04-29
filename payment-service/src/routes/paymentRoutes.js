@@ -71,4 +71,14 @@ router.get("/:paymentId", paymentController.getPaymentStatus);
 // Get all payments (admin only)
 router.get("/admin/all", paymentController.getAllPayments);
 
+// Add specific admin route for managing PayPal payments
+router.post(
+  "/admin/paypal/check-transaction",
+  [body("paypalOrderId").notEmpty()],
+  paymentController.checkPayPalTransaction
+);
+
+// Add a payment verification endpoint
+router.get("/verify/:paymentId", paymentController.verifyPaymentStatus);
+
 module.exports = router;

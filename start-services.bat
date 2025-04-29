@@ -17,19 +17,19 @@ IF "%CHOICE%"=="1" (
     
     REM Start Backend Services with proper environment variables
     echo Starting Order Service...
-    start cmd /k "cd order-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& set PORT=5001&& npm start"
+    start cmd /k "cd order-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& set PORT=5001&& npm run dev"
     
     echo Starting Payment Service...
-    start cmd /k "cd payment-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& set PORT=5003&& npm start"
+    start cmd /k "cd payment-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& set PORT=5003&& npm run dev"
     
     echo Starting Cart Service...
-    start cmd /k "cd cart-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& set PORT=5002&& npm start"
+    start cmd /k "cd cart-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& set PORT=5002&& npm run dev"
     
     echo Starting User Service...
-    start cmd /k "cd user-service && set NODE_ENV=development&& set PORT=5004&& npm start"
+    start cmd /k "cd user-service && set NODE_ENV=development&& set PORT=5004&& npm run dev"
     
     echo Starting Restaurant Service...
-    start cmd /k "cd restaurant-service && set NODE_ENV=development&& set PORT=5005&& npm start"
+    start cmd /k "cd restaurant-service && set NODE_ENV=development&& set PORT=5005&& npm run dev"
     
     REM Start Frontend
     echo Starting Frontend...

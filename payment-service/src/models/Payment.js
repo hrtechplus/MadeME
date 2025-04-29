@@ -35,6 +35,12 @@ const paymentSchema = new mongoose.Schema({
   paypalOrderId: String,
   paypalPaymentId: String,
 
+  // Flag to prevent duplicate processing of payments
+  processing: {
+    type: Boolean,
+    default: false,
+  },
+
   // For error tracking
   error: String,
 

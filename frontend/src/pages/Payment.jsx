@@ -104,32 +104,28 @@ function Payment() {
             }),
           })
         );
-      } else if (paymentMethod === "paypal") {
-        // Create a PayPal order
-        response = await handleApiCall(
-          fetch(`${serviceUrls.payment}/api/payment/paypal/create-order`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-            body: JSON.stringify({
-              orderId,
-              amount: parseFloat(amount),
-              userId: localStorage.getItem("userId") || "guest-user",
-            }),
-          })
-        );
 
-        if (response && response.success && response.approvalUrl) {
-          // Save order ID to session storage for the return flow
-          sessionStorage.setItem("currentOrderId", orderId);
-          // Redirect to PayPal for payment approval
-          window.location.href = response.approvalUrl;
-          return;
+        // Handle successful card payment
+        if (response.data.success || response.status === 200) {
+          setSuccess(true);
+          showToast("Order placed successfully!", "success");
+          setTimeout(() => {
+            navigate("/orders", {
+              state: {
+                message: "Order placed successfully!",
+                orderId: response.data?.paymentId || orderId,
+              },
+            });
+          }, 3000);
         } else {
-          throw new Error(response?.message || "Failed to create PayPal order");
+          setError(
+            response.data.message || "Payment failed. Please try again."
+          );
+          showToast(response.data.message || "Payment failed", "error");
         }
+      } else if (paymentMethod === "paypal") {
+        // Use our dedicated PayPal payment handler
+        return handlePayPalPayment();
       } else if (paymentMethod === "cash") {
         response = await handleApiCall(
           fetch(`${serviceUrls.payment}/api/payment/process`, {
@@ -146,27 +142,101 @@ function Payment() {
             }),
           })
         );
-      }
 
-      if (response.data.success || response.status === 200) {
-        setSuccess(true);
-        showToast("Order placed successfully!", "success");
-        setTimeout(() => {
-          navigate("/orders", {
-            state: {
-              message: "Order placed successfully!",
-              orderId: response.data?.paymentId || orderId,
-            },
-          });
-        }, 3000);
-      } else {
-        setError(response.data.message || "Payment failed. Please try again.");
-        showToast(response.data.message || "Payment failed", "error");
+        // Handle successful COD payment
+        if (response.data.success || response.status === 200) {
+          setSuccess(true);
+          showToast("Order placed successfully!", "success");
+          setTimeout(() => {
+            navigate("/orders", {
+              state: {
+                message: "Order placed successfully!",
+                orderId: response.data?.paymentId || orderId,
+              },
+            });
+          }, 3000);
+        } else {
+          setError(
+            response.data.message ||
+              "Order processing failed. Please try again."
+          );
+          showToast(response.data.message || "Failed to place order", "error");
+        }
       }
     } catch (err) {
+      console.error("Payment error:", err);
       setError(err.message || "Error processing payment. Please try again.");
       showToast("Error processing payment", "error");
     } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handlePayPalPayment = async () => {
+    setProcessing(true);
+    setError(null);
+
+    try {
+      console.log("Creating PayPal order...");
+
+      // Create a PayPal order
+      const response = await fetch(
+        `${serviceUrls.payment}/api/payment/paypal/create-order`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            orderId,
+            amount: parseFloat(amount),
+            userId: localStorage.getItem("userId") || "guest-user",
+          }),
+        }
+      );
+
+      // Handle HTTP errors
+      if (!response.ok) {
+        throw new Error(
+          `HTTP error ${response.status}: ${response.statusText}`
+        );
+      }
+
+      // Parse the JSON response
+      const data = await response.json();
+      console.log("PayPal order response:", data);
+
+      if (!data || !data.success) {
+        throw new Error(
+          data?.message || data?.detail || "Failed to create PayPal order"
+        );
+      }
+
+      // Save order ID to session storage for the return flow
+      sessionStorage.setItem("currentOrderId", orderId);
+
+      if (data.approvalUrl) {
+        // Log success message and redirect URL
+        console.log(
+          "Successfully created PayPal order, redirecting to:",
+          data.approvalUrl
+        );
+
+        // Add a small delay for better UX
+        setTimeout(() => {
+          // Redirect to PayPal for payment approval
+          window.location.href = data.approvalUrl;
+        }, 500);
+      } else {
+        throw new Error("PayPal approval URL not found in response");
+      }
+    } catch (err) {
+      console.error("PayPal payment error:", err);
+      setError(
+        err.message || "Error creating PayPal payment. Please try again."
+      );
+      showToast("Error setting up PayPal payment", "error");
       setProcessing(false);
     }
   };

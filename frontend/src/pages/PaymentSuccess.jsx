@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useApi } from "../context/ApiContext";
 import { useToast } from "../context/ToastContext";
@@ -7,25 +7,47 @@ import "../styles/Payment.css";
 const PaymentSuccess = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { serviceUrls } = useApi();
+  const { serviceUrls, handleApiCall } = useApi();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+  const captureAttempted = useRef(false);
 
   useEffect(() => {
     const capturePayment = async () => {
+      // Add this check to prevent multiple capture attempts
+      if (captureAttempted.current) {
+        console.log("Payment capture already attempted, skipping");
+        return;
+      }
+
+      // Set flag to true to prevent future capture attempts
+      captureAttempted.current = true;
+
       try {
+        console.log("Processing payment success flow");
         const queryParams = new URLSearchParams(location.search);
         const paymentId = queryParams.get("paymentId");
         const PayerID = queryParams.get("PayerID");
         const paypalOrderId = queryParams.get("token"); // PayPal returns the order ID as 'token'
+        const isMockPayPal = queryParams.get("mockPayPal") === "true";
         const orderId = sessionStorage.getItem("currentOrderId");
 
-        if (!paypalOrderId) {
+        console.log("Payment success params:", {
+          paymentId,
+          PayerID,
+          paypalOrderId,
+          isMockPayPal,
+          orderId,
+        });
+
+        if (!paymentId && !paypalOrderId && !orderId) {
           throw new Error("Missing required payment parameters");
         }
 
-        const response = await fetch(
+        // Always call capture on the backend, whether mock or real
+        // This ensures consistent processing and database updates
+        const fetchResponse = await fetch(
           `${serviceUrls.payment}/api/payment/paypal/capture`,
           {
             method: "POST",
@@ -34,17 +56,28 @@ const PaymentSuccess = () => {
               Authorization: `Bearer ${localStorage.getItem("token")}`,
             },
             body: JSON.stringify({
-              paypalOrderId,
-              PayerID,
-              orderId,
+              paypalOrderId: paypalOrderId || `MOCK-ORDER-${Date.now()}`,
+              PayerID: PayerID || "MOCK-PAYER",
+              orderId: orderId || null,
+              mockPayPal: isMockPayPal || false,
+              paymentId: paymentId || null,
             }),
           }
         );
 
-        const data = await response.json();
+        if (!fetchResponse.ok) {
+          const errorData = await fetchResponse.json().catch(() => ({}));
+          throw new Error(
+            errorData.message ||
+              `Request failed with status ${fetchResponse.status}`
+          );
+        }
 
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to capture payment");
+        const response = await fetchResponse.json();
+        console.log("Payment capture response:", response);
+
+        if (!response || !response.success) {
+          throw new Error(response?.message || "Failed to capture payment");
         }
 
         showToast("Payment successful! Your order has been placed.", "success");
@@ -55,7 +88,7 @@ const PaymentSuccess = () => {
 
         // Redirect to order history after 3 seconds
         setTimeout(() => {
-          navigate("/order-history");
+          navigate("/orders");
         }, 3000);
       } catch (err) {
         console.error("Payment capture error:", err);
@@ -66,10 +99,10 @@ const PaymentSuccess = () => {
     };
 
     capturePayment();
-  }, [location, navigate, serviceUrls, showToast]);
+  }, [location, navigate, serviceUrls, showToast, handleApiCall]);
 
   const handleReturn = () => {
-    navigate("/order-history");
+    navigate("/orders");
   };
 
   if (loading) {

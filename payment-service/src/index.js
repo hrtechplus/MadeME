@@ -32,7 +32,11 @@ app.use(morgan("combined", { stream: logger.stream }));
 // Body parsing - important to put this before the routes
 // Only parse JSON for non-webhook routes
 app.use((req, res, next) => {
-  if (req.originalUrl === "/api/payment/webhook") {
+  // Handle both PayPal and Stripe webhooks with raw body
+  if (
+    req.originalUrl === "/api/payment/webhook" ||
+    req.originalUrl === "/api/payment/paypal-webhook"
+  ) {
     next();
   } else {
     express.json()(req, res, next);
