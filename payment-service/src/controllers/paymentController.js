@@ -1,15 +1,16 @@
 /**
- * PayPal Gateway Integration for both web and mobile platforms
- * This implementation follows PayPal's recommended practices for cross-platform support
+ * PayPal Gateway Integration using the latest PayPal SDK
  */
 
 const Payment = require("../models/Payment");
 const axios = require("axios");
 const { validationResult } = require("express-validator");
-const paypal = require("@paypal/checkout-server-sdk");
 const logger = require("../utils/logger");
 
-// Helper function to create PayPal client based on environment settings
+// Using the @paypal/checkout-server-sdk for PayPal integration
+const paypal = require("@paypal/checkout-server-sdk");
+
+// Configure PayPal Environment
 function createPayPalClient() {
   try {
     const clientId = process.env.PAYPAL_CLIENT_ID;
@@ -41,7 +42,7 @@ function createPayPalClient() {
   }
 }
 
-// Create a PayPal order for web or mobile
+// Create a PayPal order
 exports.createPayPalOrder = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -50,9 +51,9 @@ exports.createPayPalOrder = async (req, res) => {
       return res.status(400).json({ errors: errors.array(), success: false });
     }
 
-    const { orderId, amount, userId, platform = "web" } = req.body;
+    const { orderId, amount, userId, items = [] } = req.body;
     logger.info(
-      `Creating PayPal order for ${platform} platform, order: ${orderId}, amount: $${amount}`
+      `Creating PayPal order for order: ${orderId}, amount: $${amount}`
     );
 
     // Create payment record in database
@@ -63,45 +64,64 @@ exports.createPayPalOrder = async (req, res) => {
       status: "PENDING",
       paymentMethod: "PAYPAL",
       transactionId: `paypal_init_${Date.now()}`,
-      metadata: { platform, createdAt: new Date().toISOString() },
+      metadata: { createdAt: new Date().toISOString() },
     });
     await payment.save();
     logger.info(`Created payment record with ID: ${payment._id}`);
 
-    // Get PayPal client
+    // Create PayPal Order
     const paypalClient = createPayPalClient();
     const request = new paypal.orders.OrdersCreateRequest();
     request.prefer("return=representation");
 
-    // Select the appropriate experience profile based on platform
-    // Note: These are optional and can be commented out if not needed
-    let experienceProfileId;
-    if (process.env.PAYPAL_WEB_EXPERIENCE_PROFILE) {
-      experienceProfileId =
-        platform === "mobile"
-          ? process.env.PAYPAL_MOBILE_EXPERIENCE_PROFILE
-          : process.env.PAYPAL_WEB_EXPERIENCE_PROFILE;
-    }
-
-    // Determine return URLs based on platform
-    let returnUrl, cancelUrl;
-    if (platform === "mobile") {
-      returnUrl =
-        process.env.MOBILE_APP_RETURN_URL || "mademe-app://payment/return";
-      cancelUrl =
-        process.env.MOBILE_APP_RETURN_URL + "?status=cancel" ||
-        "mademe-app://payment/cancel";
-    } else {
-      returnUrl = `${
-        process.env.FRONTEND_URL || "http://localhost:5173"
-      }/payment/success?paymentId=${payment._id}`;
-      cancelUrl = `${
-        process.env.FRONTEND_URL || "http://localhost:5173"
-      }/payment/cancel`;
-    }
+    // Define return URLs
+    const returnUrl = `${
+      process.env.FRONTEND_URL || "http://localhost:5173"
+    }/payment/success?orderId=${orderId}&paymentId=${payment._id}`;
+    const cancelUrl = `${
+      process.env.FRONTEND_URL || "http://localhost:5173"
+    }/payment/cancel`;
 
     logger.info(`PayPal return URL: ${returnUrl}`);
     logger.info(`PayPal cancel URL: ${cancelUrl}`);
+
+    // Format items for PayPal if provided, otherwise create a generic order
+    const paypalItems =
+      items.length > 0
+        ? items.map((item) => ({
+            name: item.name,
+            description: `${item.name}`,
+            unit_amount: {
+              currency_code: "USD",
+              value: item.price.toString(),
+            },
+            quantity: item.quantity.toString(),
+            category: "DIGITAL_GOODS",
+          }))
+        : [
+            {
+              name: "Food Order",
+              description: `Order #${orderId}`,
+              unit_amount: {
+                currency_code: "USD",
+                value: amount.toString(),
+              },
+              quantity: "1",
+              category: "DIGITAL_GOODS",
+            },
+          ];
+
+    // Calculate breakdown values
+    let itemTotal = 0;
+    if (items.length > 0) {
+      itemTotal = items.reduce(
+        (total, item) => total + item.price * item.quantity,
+        0
+      );
+      itemTotal = parseFloat(itemTotal.toFixed(2));
+    } else {
+      itemTotal = parseFloat(amount);
+    }
 
     // Build the request body
     request.requestBody({
@@ -116,39 +136,22 @@ exports.createPayPalOrder = async (req, res) => {
             breakdown: {
               item_total: {
                 currency_code: "USD",
-                value: amount.toString(),
+                value: itemTotal.toString(),
               },
             },
           },
-          items: [
-            {
-              name: "Food Delivery Order",
-              description: `Order #${orderId}`,
-              unit_amount: {
-                currency_code: "USD",
-                value: amount.toString(),
-              },
-              quantity: "1",
-              category: "DIGITAL_GOODS",
-            },
-          ],
+          items: paypalItems,
         },
       ],
       application_context: {
         brand_name: "MadeME Food Delivery",
-        landing_page: platform === "mobile" ? "BILLING" : "LOGIN",
+        landing_page: "LOGIN",
         shipping_preference: "NO_SHIPPING",
         user_action: "PAY_NOW",
         return_url: returnUrl,
         cancel_url: cancelUrl,
       },
     });
-
-    // Add experience profile if available
-    if (experienceProfileId) {
-      logger.info(`Using PayPal experience profile: ${experienceProfileId}`);
-      request.requestBody.experience_profile_id = experienceProfileId;
-    }
 
     // Execute the request to create the order
     logger.info("Sending request to PayPal to create order");
@@ -168,7 +171,6 @@ exports.createPayPalOrder = async (req, res) => {
     const approvalUrl = response.result.links.find(
       (link) => link.rel === "approve"
     ).href;
-
     logger.info(`PayPal approval URL: ${approvalUrl}`);
 
     // Return response with appropriate data
@@ -177,7 +179,6 @@ exports.createPayPalOrder = async (req, res) => {
       paymentId: payment._id,
       paypalOrderId: response.result.id,
       approvalUrl: approvalUrl,
-      platform: platform,
     });
   } catch (error) {
     logger.error("Error creating PayPal order:", error);
@@ -193,14 +194,9 @@ exports.createPayPalOrder = async (req, res) => {
 // Capture a PayPal payment
 exports.capturePayPalPayment = async (req, res) => {
   try {
-    const {
-      paypalOrderId,
-      PayerID,
-      platform = "web",
-      mockPayPal = false,
-    } = req.body;
+    const { paypalOrderId, PayerID } = req.body;
     logger.info(
-      `Capturing PayPal payment from ${platform} platform: Order ID ${paypalOrderId}, Payer ID ${PayerID}`
+      `Capturing PayPal payment: Order ID ${paypalOrderId}, Payer ID ${PayerID}`
     );
 
     if (!paypalOrderId) {
@@ -222,15 +218,16 @@ exports.capturePayPalPayment = async (req, res) => {
       });
     }
 
-    // Check if payment is already processed
-    if (payment.status !== "PENDING") {
+    // Check if payment is already completed
+    if (payment.status === "COMPLETED") {
       logger.info(
-        `Payment ${payment._id} already processed, status: ${payment.status}`
+        `Payment ${payment._id} already processed, status: COMPLETED`
       );
       return res.json({
         success: true,
         message: "Payment already processed",
         paymentId: payment._id,
+        orderId: payment.orderId,
         status: payment.status,
       });
     }
@@ -245,10 +242,13 @@ exports.capturePayPalPayment = async (req, res) => {
     logger.info(`Marked payment ${payment._id} as PROCESSING`);
 
     // For mock PayPal in development (useful for testing)
-    if (mockPayPal && process.env.NODE_ENV === "development") {
+    if (
+      process.env.MOCK_PAYPAL === "true" &&
+      process.env.NODE_ENV === "development"
+    ) {
       logger.info(`Using mock PayPal processing for order ${paypalOrderId}`);
 
-      // Update payment record
+      // Update payment record for mock processing
       payment.status = "COMPLETED";
       payment.paypalPaymentId = `mock_${Date.now()}`;
       payment.metadata = {
@@ -263,7 +263,9 @@ exports.capturePayPalPayment = async (req, res) => {
       // Notify order service
       try {
         await axios.patch(
-          `${process.env.ORDER_SERVICE_URL}/api/order/${payment.orderId}/status`,
+          `${
+            process.env.ORDER_SERVICE_URL || "http://localhost:5001"
+          }/api/orders/${payment.orderId}/status`,
           { status: "CONFIRMED" },
           {
             headers: {
@@ -325,12 +327,14 @@ exports.capturePayPalPayment = async (req, res) => {
       // Notify order service to update order status
       try {
         await axios.patch(
-          `${process.env.ORDER_SERVICE_URL}/api/order/${payment.orderId}/status`,
-          { status: "PENDING" },
+          `${
+            process.env.ORDER_SERVICE_URL || "http://localhost:5001"
+          }/api/orders/${payment.orderId}/status`,
+          { status: "CONFIRMED" },
           {
             headers: {
               "Content-Type": "application/json",
-              Authorization: req.headers.authorization, // Pass through auth token
+              Authorization: req.headers.authorization,
             },
           }
         );
@@ -346,7 +350,7 @@ exports.capturePayPalPayment = async (req, res) => {
         message: "Payment successfully captured",
         paymentId: payment._id,
         orderId: payment.orderId,
-        captureId: captureId,
+        captureId,
         status: "COMPLETED",
       });
     } catch (captureError) {
@@ -382,13 +386,13 @@ exports.capturePayPalPayment = async (req, res) => {
   }
 };
 
-// Get PayPal payment details
-exports.getPayPalPaymentDetails = async (req, res) => {
+// Get payment status
+exports.getPaymentStatus = async (req, res) => {
   try {
     const { paymentId } = req.params;
 
-    // Find payment in database
     const payment = await Payment.findById(paymentId);
+
     if (!payment) {
       return res.status(404).json({
         success: false,
@@ -396,51 +400,157 @@ exports.getPayPalPaymentDetails = async (req, res) => {
       });
     }
 
-    // If it's not a PayPal payment, return basic details
+    return res.json({
+      success: true,
+      payment: {
+        id: payment._id,
+        status: payment.status,
+        amount: payment.amount,
+        method: payment.paymentMethod,
+        orderId: payment.orderId,
+        createdAt: payment.createdAt,
+        metadata: payment.metadata,
+      },
+    });
+  } catch (error) {
+    logger.error(`Error getting payment status: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      message: "Error retrieving payment status",
+      error: error.message,
+    });
+  }
+};
+
+// Verify payment status with PayPal
+exports.verifyPaymentStatus = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+
+    // Find payment in database
+    const payment = await Payment.findById(paymentId);
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment not found",
+      });
+    }
+
+    // If it's not a PayPal payment, just return the current status
     if (payment.paymentMethod !== "PAYPAL") {
       return res.json({
         success: true,
-        message: "Not a PayPal payment",
-        payment: payment,
+        payment: {
+          id: payment._id,
+          status: payment.status,
+          amount: payment.amount,
+          method: payment.paymentMethod,
+          orderId: payment.orderId,
+        },
       });
     }
 
-    // If there's no PayPal order ID, return basic details
-    if (!payment.paypalOrderId) {
-      return res.json({
-        success: true,
-        message: "PayPal order ID not found",
-        payment: payment,
-      });
+    // For PayPal payments, check the status with PayPal if we have an order ID
+    if (payment.paypalOrderId) {
+      try {
+        const paypalClient = createPayPalClient();
+        const request = new paypal.orders.OrdersGetRequest(
+          payment.paypalOrderId
+        );
+        const response = await paypalClient.execute(request);
+
+        const paypalStatus = response.result.status;
+        logger.info(
+          `PayPal order ${payment.paypalOrderId} status from PayPal: ${paypalStatus}`
+        );
+
+        // If our status doesn't match PayPal's, update our record
+        if (
+          (paypalStatus === "COMPLETED" && payment.status !== "COMPLETED") ||
+          (paypalStatus === "APPROVED" && payment.status === "PENDING")
+        ) {
+          logger.info(
+            `Updating payment ${payment._id} status from ${payment.status} to COMPLETED based on PayPal verification`
+          );
+
+          payment.status = "COMPLETED";
+          payment.metadata = {
+            ...payment.metadata,
+            verifiedAt: new Date().toISOString(),
+            paypalStatus: paypalStatus,
+          };
+          await payment.save();
+
+          // Notify order service if we're updating to COMPLETED
+          try {
+            await axios.patch(
+              `${
+                process.env.ORDER_SERVICE_URL || "http://localhost:5001"
+              }/api/orders/${payment.orderId}/status`,
+              { status: "CONFIRMED" },
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: req.headers.authorization,
+                },
+              }
+            );
+            logger.info(
+              `Updated order ${payment.orderId} status to CONFIRMED via verification`
+            );
+          } catch (orderError) {
+            logger.error(
+              `Error updating order status via verification: ${orderError.message}`
+            );
+          }
+        }
+
+        return res.json({
+          success: true,
+          verified: true,
+          payment: {
+            id: payment._id,
+            status: payment.status,
+            amount: payment.amount,
+            method: payment.paymentMethod,
+            orderId: payment.orderId,
+          },
+          paypalStatus: paypalStatus,
+        });
+      } catch (paypalError) {
+        logger.error(`Error verifying with PayPal: ${paypalError.message}`);
+        return res.json({
+          success: true,
+          verified: false,
+          payment: {
+            id: payment._id,
+            status: payment.status,
+            amount: payment.amount,
+            method: payment.paymentMethod,
+            orderId: payment.orderId,
+          },
+          error: paypalError.message,
+        });
+      }
     }
 
-    // Get detailed information from PayPal
-    try {
-      const paypalClient = createPayPalClient();
-      const request = new paypal.orders.OrdersGetRequest(payment.paypalOrderId);
-      const response = await paypalClient.execute(request);
-
-      return res.json({
-        success: true,
-        payment: payment,
-        paypalDetails: response.result,
-      });
-    } catch (paypalError) {
-      logger.error(
-        `Error getting PayPal payment details: ${paypalError.message}`
-      );
-      return res.json({
-        success: true,
-        message: "Could not retrieve detailed PayPal information",
-        payment: payment,
-        error: paypalError.message,
-      });
-    }
+    // If we don't have a PayPal order ID, just return our current info
+    return res.json({
+      success: true,
+      payment: {
+        id: payment._id,
+        status: payment.status,
+        amount: payment.amount,
+        method: payment.paymentMethod,
+        orderId: payment.orderId,
+      },
+    });
   } catch (error) {
-    logger.error(`Error getting payment details: ${error.message}`);
+    logger.error(`Error verifying payment status: ${error.message}`);
     return res.status(500).json({
       success: false,
-      message: "Error retrieving payment details",
+      message: "Error verifying payment status",
       error: error.message,
     });
   }
@@ -453,8 +563,7 @@ exports.handlePayPalWebhook = async (req, res) => {
     const paypalBody = req.body.toString("utf8");
     logger.info("Received PayPal webhook event");
 
-    // Verify the webhook is from PayPal
-    // In production, you should validate the webhook signature
+    // Verify the webhook is from PayPal - in production, validate the webhook signature
     // https://developer.paypal.com/docs/api/webhooks/v1/#verify-webhook-signature
 
     // Parse the webhook payload
@@ -538,7 +647,9 @@ async function handlePaymentCaptureCompleted(webhookEvent) {
     // Update the order status
     try {
       await axios.patch(
-        `${process.env.ORDER_SERVICE_URL}/api/order/${payment.orderId}/status`,
+        `${
+          process.env.ORDER_SERVICE_URL || "http://localhost:5001"
+        }/api/orders/${payment.orderId}/status`,
         { status: "CONFIRMED" },
         { headers: { "Content-Type": "application/json" } }
       );
@@ -595,12 +706,14 @@ async function handlePaymentCaptureDenied(webhookEvent) {
     // Update the order status to CANCELED
     try {
       await axios.patch(
-        `${process.env.ORDER_SERVICE_URL}/api/order/${payment.orderId}/status`,
-        { status: "CANCELED" },
+        `${
+          process.env.ORDER_SERVICE_URL || "http://localhost:5001"
+        }/api/orders/${payment.orderId}/status`,
+        { status: "CANCELLED" },
         { headers: { "Content-Type": "application/json" } }
       );
       logger.info(
-        `Updated order ${payment.orderId} status to CANCELED via webhook`
+        `Updated order ${payment.orderId} status to CANCELLED via webhook`
       );
     } catch (orderError) {
       logger.error(
@@ -654,7 +767,9 @@ async function handlePaymentRefunded(webhookEvent) {
     // Update the order status
     try {
       await axios.patch(
-        `${process.env.ORDER_SERVICE_URL}/api/order/${payment.orderId}/status`,
+        `${
+          process.env.ORDER_SERVICE_URL || "http://localhost:5001"
+        }/api/orders/${payment.orderId}/status`,
         { status: "REFUNDED" },
         { headers: { "Content-Type": "application/json" } }
       );
@@ -671,255 +786,7 @@ async function handlePaymentRefunded(webhookEvent) {
   }
 }
 
-// Check PayPal transaction status - admin function
-exports.checkPayPalTransaction = async (req, res) => {
-  try {
-    const { paypalOrderId } = req.body;
-
-    if (!paypalOrderId) {
-      return res.status(400).json({
-        success: false,
-        message: "PayPal order ID is required",
-      });
-    }
-
-    logger.info(`Admin checking PayPal transaction: ${paypalOrderId}`);
-
-    // Get PayPal client
-    const paypalClient = createPayPalClient();
-    const request = new paypal.orders.OrdersGetRequest(paypalOrderId);
-
-    // Execute the request to get order details
-    const response = await paypalClient.execute(request);
-    logger.info(`PayPal order details retrieved for: ${paypalOrderId}`);
-
-    // Check if payment exists in our database
-    const payment = await Payment.findOne({ paypalOrderId });
-
-    // Return the response with PayPal details and our payment record
-    return res.json({
-      success: true,
-      paypalOrderId,
-      paypalOrder: response.result,
-      payment: payment || null,
-    });
-  } catch (error) {
-    logger.error(`Error checking PayPal transaction: ${error.message}`);
-    return res.status(500).json({
-      success: false,
-      message: "Error checking PayPal transaction",
-      error: error.message,
-    });
-  }
-};
-
-// Verify payment status
-exports.verifyPaymentStatus = async (req, res) => {
-  try {
-    const { paymentId } = req.params;
-
-    // Find payment in database
-    const payment = await Payment.findById(paymentId);
-
-    if (!payment) {
-      return res.status(404).json({
-        success: false,
-        message: "Payment not found",
-      });
-    }
-
-    // If it's not a PayPal payment, just return the current status
-    if (payment.paymentMethod !== "PAYPAL") {
-      return res.json({
-        success: true,
-        payment: {
-          id: payment._id,
-          status: payment.status,
-          amount: payment.amount,
-          method: payment.paymentMethod,
-          orderId: payment.orderId,
-        },
-      });
-    }
-
-    // For PayPal payments, check the status with PayPal if we have an order ID
-    if (payment.paypalOrderId) {
-      try {
-        const paypalClient = createPayPalClient();
-        const request = new paypal.orders.OrdersGetRequest(
-          payment.paypalOrderId
-        );
-        const response = await paypalClient.execute(request);
-
-        const paypalStatus = response.result.status;
-        logger.info(
-          `PayPal order ${payment.paypalOrderId} status from PayPal: ${paypalStatus}`
-        );
-
-        // If our status doesn't match PayPal's, update our record
-        if (
-          (paypalStatus === "COMPLETED" && payment.status !== "COMPLETED") ||
-          (paypalStatus === "APPROVED" && payment.status === "PENDING")
-        ) {
-          logger.info(
-            `Updating payment ${payment._id} status from ${payment.status} to COMPLETED based on PayPal verification`
-          );
-
-          payment.status = "COMPLETED";
-          payment.metadata = {
-            ...payment.metadata,
-            verifiedAt: new Date().toISOString(),
-            paypalStatus: paypalStatus,
-          };
-          await payment.save();
-
-          // Notify order service if we're updating to COMPLETED
-          try {
-            await axios.patch(
-              `${process.env.ORDER_SERVICE_URL}/api/order/${payment.orderId}/status`,
-              { status: "CONFIRMED" },
-              {
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: req.headers.authorization,
-                },
-              }
-            );
-            logger.info(
-              `Updated order ${payment.orderId} status to CONFIRMED via verification`
-            );
-          } catch (orderError) {
-            logger.error(
-              `Error updating order status via verification: ${orderError.message}`
-            );
-          }
-        }
-
-        return res.json({
-          success: true,
-          verified: true,
-          payment: {
-            id: payment._id,
-            status: payment.status,
-            amount: payment.amount,
-            method: payment.paymentMethod,
-            orderId: payment.orderId,
-          },
-          paypalStatus: paypalStatus,
-        });
-      } catch (paypalError) {
-        logger.error(`Error verifying with PayPal: ${paypalError.message}`);
-        return res.json({
-          success: true,
-          verified: false,
-          payment: {
-            id: payment._id,
-            status: payment.status,
-            amount: payment.amount,
-            method: payment.paymentMethod,
-            orderId: payment.orderId,
-          },
-          error: paypalError.message,
-        });
-      }
-    }
-
-    // If we don't have a PayPal order ID, just return our current info
-    return res.json({
-      success: true,
-      payment: {
-        id: payment._id,
-        status: payment.status,
-        amount: payment.amount,
-        method: payment.paymentMethod,
-        orderId: payment.orderId,
-      },
-    });
-  } catch (error) {
-    logger.error(`Error verifying payment status: ${error.message}`);
-    return res.status(500).json({
-      success: false,
-      message: "Error verifying payment status",
-      error: error.message,
-    });
-  }
-};
-
-// Get payment status
-exports.getPaymentStatus = async (req, res) => {
-  try {
-    const { paymentId } = req.params;
-
-    const payment = await Payment.findById(paymentId);
-
-    if (!payment) {
-      return res.status(404).json({
-        success: false,
-        message: "Payment not found",
-      });
-    }
-
-    return res.json({
-      success: true,
-      payment: {
-        id: payment._id,
-        status: payment.status,
-        amount: payment.amount,
-        method: payment.paymentMethod,
-        orderId: payment.orderId,
-        createdAt: payment.createdAt,
-        metadata: payment.metadata,
-      },
-    });
-  } catch (error) {
-    logger.error(`Error getting payment status: ${error.message}`);
-    return res.status(500).json({
-      success: false,
-      message: "Error retrieving payment status",
-      error: error.message,
-    });
-  }
-};
-
-// Get all payments (admin only)
-exports.getAllPayments = async (req, res) => {
-  try {
-    // Pagination support
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
-
-    // Filtering support
-    const filter = {};
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.method) filter.paymentMethod = req.query.method;
-
-    const payments = await Payment.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    const totalCount = await Payment.countDocuments(filter);
-
-    return res.json({
-      success: true,
-      count: payments.length,
-      total: totalCount,
-      page,
-      totalPages: Math.ceil(totalCount / limit),
-      payments,
-    });
-  } catch (error) {
-    logger.error(`Error getting all payments: ${error.message}`);
-    return res.status(500).json({
-      success: false,
-      message: "Error retrieving payments",
-      error: error.message,
-    });
-  }
-};
-
-// Create payment intent for Stripe
+// Create payment intent (for Stripe or simple payments)
 exports.createPaymentIntent = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -940,15 +807,12 @@ exports.createPaymentIntent = async (req, res) => {
       amount,
       status: "PENDING",
       paymentMethod: "CARD",
-      transactionId: `stripe_init_${Date.now()}`,
+      transactionId: `intent_${Date.now()}`,
       metadata: { email },
     });
 
     await payment.save();
     logger.info(`Created payment record with ID: ${payment._id}`);
-
-    // In a real implementation, we would create a Stripe payment intent here
-    // For now, we'll just return a successful response
 
     return res.status(200).json({
       success: true,
@@ -966,7 +830,7 @@ exports.createPaymentIntent = async (req, res) => {
   }
 };
 
-// Process payment (handles both card and COD)
+// Process payment (non-PayPal methods)
 exports.processPayment = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -1015,7 +879,6 @@ exports.processPayment = async (req, res) => {
       logger.info(`Updated order ${orderId} status to ${orderStatus}`);
     } catch (orderError) {
       logger.error(`Error updating order status: ${orderError.message}`);
-      // Continue with payment confirmation even if order update fails
     }
 
     return res.status(200).json({
@@ -1035,20 +898,164 @@ exports.processPayment = async (req, res) => {
   }
 };
 
-// Handle Stripe webhook
+// Handle webhook (for other payment processors)
 exports.handleWebhook = async (req, res) => {
   try {
-    // Get the raw body as a string
-    const stripeBody = req.body.toString("utf8");
-    logger.info("Received Stripe webhook event");
+    const webhookBody = req.body.toString("utf8");
+    logger.info("Received payment webhook event");
 
-    // In a real implementation, we would verify the webhook signature here
-    // For now, we'll just acknowledge receipt
+    // In a real implementation, we would verify the webhook signature
+    // and process different event types
 
     return res.status(200).json({ received: true });
   } catch (error) {
-    logger.error(`Error handling Stripe webhook: ${error.message}`);
-    // Still return 200 to prevent retries
+    logger.error(`Error handling webhook: ${error.message}`);
+    // Return 200 to prevent retries
     return res.status(200).json({ received: true, error: error.message });
+  }
+};
+
+// Get all payments (admin only)
+exports.getAllPayments = async (req, res) => {
+  try {
+    // Pagination support
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    // Filtering support
+    const filter = {};
+    if (req.query.status) filter.status = req.query.status;
+    if (req.query.method) filter.paymentMethod = req.query.method;
+    if (req.query.orderId) filter.orderId = req.query.orderId;
+
+    const payments = await Payment.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const totalCount = await Payment.countDocuments(filter);
+
+    return res.json({
+      success: true,
+      count: payments.length,
+      total: totalCount,
+      page,
+      totalPages: Math.ceil(totalCount / limit),
+      payments,
+    });
+  } catch (error) {
+    logger.error(`Error getting all payments: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      message: "Error retrieving payments",
+      error: error.message,
+    });
+  }
+};
+
+// Get PayPal payment details
+exports.getPayPalPaymentDetails = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+
+    // Find payment in database
+    const payment = await Payment.findById(paymentId);
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment not found",
+      });
+    }
+
+    // If it's not a PayPal payment, return basic details
+    if (payment.paymentMethod !== "PAYPAL") {
+      return res.json({
+        success: true,
+        message: "Not a PayPal payment",
+        payment: payment,
+      });
+    }
+
+    // If there's no PayPal order ID, return basic details
+    if (!payment.paypalOrderId) {
+      return res.json({
+        success: true,
+        message: "PayPal order ID not found",
+        payment: payment,
+      });
+    }
+
+    // Get detailed information from PayPal
+    try {
+      const paypalClient = createPayPalClient();
+      const request = new paypal.orders.OrdersGetRequest(payment.paypalOrderId);
+      const response = await paypalClient.execute(request);
+
+      return res.json({
+        success: true,
+        payment: payment,
+        paypalDetails: response.result,
+      });
+    } catch (paypalError) {
+      logger.error(
+        `Error getting PayPal payment details: ${paypalError.message}`
+      );
+      return res.json({
+        success: true,
+        message: "Could not retrieve detailed PayPal information",
+        payment: payment,
+        error: paypalError.message,
+      });
+    }
+  } catch (error) {
+    logger.error(`Error getting payment details: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      message: "Error retrieving payment details",
+      error: error.message,
+    });
+  }
+};
+
+// Check PayPal transaction status - admin function
+exports.checkPayPalTransaction = async (req, res) => {
+  try {
+    const { paypalOrderId } = req.body;
+
+    if (!paypalOrderId) {
+      return res.status(400).json({
+        success: false,
+        message: "PayPal order ID is required",
+      });
+    }
+
+    logger.info(`Admin checking PayPal transaction: ${paypalOrderId}`);
+
+    // Get PayPal client
+    const paypalClient = createPayPalClient();
+    const request = new paypal.orders.OrdersGetRequest(paypalOrderId);
+
+    // Execute the request to get order details
+    const response = await paypalClient.execute(request);
+    logger.info(`PayPal order details retrieved for: ${paypalOrderId}`);
+
+    // Check if payment exists in our database
+    const payment = await Payment.findOne({ paypalOrderId });
+
+    // Return the response with PayPal details and our payment record
+    return res.json({
+      success: true,
+      paypalOrderId,
+      paypalOrder: response.result,
+      payment: payment || null,
+    });
+  } catch (error) {
+    logger.error(`Error checking PayPal transaction: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      message: "Error checking PayPal transaction",
+      error: error.message,
+    });
   }
 };

@@ -421,6 +421,7 @@ const AdminDashboard = () => {
   const fetchPayments = async () => {
     try {
       setLoading(true);
+      console.log("Fetching payments...");
 
       // Build query parameters
       let queryParams = new URLSearchParams();
@@ -428,7 +429,7 @@ const AdminDashboard = () => {
         queryParams.append("status", paymentStatusFilter.toUpperCase());
       }
       if (paymentMethodFilter !== "all") {
-        queryParams.append("paymentMethod", paymentMethodFilter.toUpperCase());
+        queryParams.append("method", paymentMethodFilter.toUpperCase());
       }
       if (dateFilter.startDate) {
         queryParams.append("startDate", dateFilter.startDate);
@@ -437,22 +438,58 @@ const AdminDashboard = () => {
         queryParams.append("endDate", dateFilter.endDate);
       }
 
+      console.log("Payment query params:", queryParams.toString());
+
       // Fetch payments from API
-      const response = await handleApiCall(
-        fetch(
-          `${
-            serviceUrls.payment
-          }/api/payment/admin/all?${queryParams.toString()}`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-              "x-admin-auth": "true", // Add special admin header for development mode
-            },
-          }
-        )
+      const response = await makeApiCall(
+        "payment",
+        `payment/admin/all?${queryParams.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+        }
       );
 
-      setPayments(response.data || []);
+      console.log("Payment API response:", response);
+
+      // Handle different API response formats
+      let paymentData = [];
+
+      // Case 1: Response has data.payments structure (most common)
+      if (response.data && response.data.payments && Array.isArray(response.data.payments)) {
+        paymentData = response.data.payments;
+        console.log(`Found ${paymentData.length} payments in response.data.payments`);
+      } 
+      // Case 2: Response has payments directly
+      else if (response.payments && Array.isArray(response.payments)) {
+        paymentData = response.payments;
+        console.log(`Found ${paymentData.length} payments in response.payments`);
+      } 
+      // Case 3: Response has data array directly
+      else if (response.data && Array.isArray(response.data)) {
+        paymentData = response.data;
+        console.log(`Found ${paymentData.length} payments in response.data array`);
+      } 
+      // Case 4: Response is the array itself
+      else if (Array.isArray(response)) {
+        paymentData = response;
+        console.log(`Found ${paymentData.length} payments in direct array response`);
+      }
+      // Case 5: No valid payment data found
+      else {
+        console.warn("No valid payment data structure found in API response:", response);
+      }
+
+      // Set payments data
+      setPayments(paymentData);
+
+      // Log any empty results for debugging
+      if (paymentData.length === 0) {
+        console.warn("No payments found in API response");
+      }
+
       setLoading(false);
     } catch (error) {
       console.error("Error fetching payments:", error);
