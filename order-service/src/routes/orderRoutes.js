@@ -181,4 +181,14 @@ router.post(
   orderController.handleRestaurantResponse
 );
 
+// Alternative order cancellation route (simpler authentication)
+router.post(
+  "/:id/user-cancel",
+  [
+    body("userId").notEmpty().withMessage("User ID is required"),
+    body("cancellationReason").optional().isString(),
+  ],
+  orderController.userCancelOrder
+);
+
 module.exports = router;

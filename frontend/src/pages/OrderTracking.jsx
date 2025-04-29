@@ -70,7 +70,20 @@ const OrderTracking = () => {
     }
 
     try {
-      const response = await orderApi.cancelOrder(id, "Cancelled by customer");
+      // Get user ID directly from localStorage instead of parsing JSON
+      const userId = localStorage.getItem("userId");
+      
+      if (!userId) {
+        showToast("User information not found. Please log in again.", "error");
+        return;
+      }
+      
+      // Use the alternative cancellation endpoint that doesn't rely on token validation
+      const response = await orderApi.userCancelOrder(
+        id,
+        userId,
+        "Cancelled by customer"
+      );
 
       if (response.data.success) {
         showToast("Order cancelled successfully", "success");

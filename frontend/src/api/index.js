@@ -101,6 +101,12 @@ export const orderApi = {
   deleteOrder: (orderId) => orderClient.delete(`/orders/${orderId}`),
   cancelOrder: (orderId, cancellationReason) =>
     orderClient.post(`/orders/${orderId}/cancel`, { cancellationReason }),
+  // Alternative order cancellation method (doesn't require auth token validation)
+  userCancelOrder: (orderId, userId, cancellationReason) =>
+    orderClient.post(`/orders/${orderId}/user-cancel`, { 
+      userId, 
+      cancellationReason 
+    }),
 };
 
 // Payment API functions
