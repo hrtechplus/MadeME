@@ -1924,3 +1924,11 @@
 {"level":"info","message":"::1 - - [29/Apr/2025:14:37:51 +0000] \"GET /api/payment/admin/all? HTTP/1.1\" 200 10315 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T14:37:51.091Z"}
 {"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T14:38:08.127Z"}
 {"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-29T14:38:09.853Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T14:38:33.894Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-29T14:38:35.554Z"}
+{"level":"info","message":"Processing COD payment for order 6810e46f90babb7f676983e6 with amount $14.99","service":"payment-service","timestamp":"2025-04-29T14:38:42.220Z"}
+{"level":"info","message":"Created payment record with ID: 6810e4726c9d0da7648ea519","service":"payment-service","timestamp":"2025-04-29T14:38:42.377Z"}
+{"level":"error","message":"Error updating order status: Request failed with status code 403","service":"payment-service","timestamp":"2025-04-29T14:38:42.392Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:14:38:42 +0000] \"POST /api/payment/process HTTP/1.1\" 200 155 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T14:38:42.395Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T14:52:08.858Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-29T14:52:10.650Z"}

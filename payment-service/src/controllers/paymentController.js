@@ -836,7 +836,7 @@ exports.processPayment = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       logger.error("Validation errors:", errors.array());
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ errors: errors.array(), success: false });
     }
 
     const { orderId, amount, paymentMethod = "CARD", userId } = req.body;
@@ -844,18 +844,37 @@ exports.processPayment = async (req, res) => {
       `Processing ${paymentMethod} payment for order ${orderId} with amount $${amount}`
     );
 
+    // Make sure we have a valid orderId and amount
+    if (!orderId || !amount) {
+      logger.error("Missing required fields: orderId or amount");
+      return res.status(400).json({
+        success: false,
+        message: "Order ID and amount are required",
+      });
+    }
+
     // Generate a unique transaction ID
     const transactionId = `payment_${paymentMethod.toLowerCase()}_${Date.now()}`;
+
+    // Get userId from different possible sources with fallback to guest-user
+    const paymentUserId =
+      userId ||
+      (req.userData && req.userData.userId) ||
+      (req.user && req.user.id) ||
+      "guest-user";
 
     // Create payment record
     const payment = new Payment({
       orderId,
-      userId: userId || req.userData?.userId || "guest-user",
+      userId: paymentUserId,
       amount,
       status: paymentMethod === "COD" ? "PENDING" : "COMPLETED",
       paymentMethod,
       transactionId,
-      metadata: { processedAt: new Date().toISOString() },
+      metadata: {
+        processedAt: new Date().toISOString(),
+        source: "direct-payment-api",
+      },
     });
 
     await payment.save();
