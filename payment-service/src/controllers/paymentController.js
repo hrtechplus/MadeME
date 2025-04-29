@@ -830,7 +830,7 @@ exports.createPaymentIntent = async (req, res) => {
   }
 };
 
-// Process payment (non-PayPal methods)
+// Helper function to handle completed payment for COD and other methods
 exports.processPayment = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -839,7 +839,7 @@ exports.processPayment = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { orderId, amount, paymentMethod = "CARD" } = req.body;
+    const { orderId, amount, paymentMethod = "CARD", userId } = req.body;
     logger.info(
       `Processing ${paymentMethod} payment for order ${orderId} with amount $${amount}`
     );
@@ -850,7 +850,7 @@ exports.processPayment = async (req, res) => {
     // Create payment record
     const payment = new Payment({
       orderId,
-      userId: req.userData?.userId || "guest-user",
+      userId: userId || req.userData?.userId || "guest-user",
       amount,
       status: paymentMethod === "COD" ? "PENDING" : "COMPLETED",
       paymentMethod,
@@ -879,6 +879,8 @@ exports.processPayment = async (req, res) => {
       logger.info(`Updated order ${orderId} status to ${orderStatus}`);
     } catch (orderError) {
       logger.error(`Error updating order status: ${orderError.message}`);
+      // Even if order update fails, we still want to return success
+      // as the payment was processed correctly
     }
 
     return res.status(200).json({

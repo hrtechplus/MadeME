@@ -143,18 +143,21 @@ function Payment() {
           })
         );
 
-        // Handle successful COD payment
+        // For Cash on Delivery, consider both success and pending as valid states
         if (response.data.success || response.status === 200) {
           setSuccess(true);
-          showToast("Order placed successfully!", "success");
+          showToast(
+            "Order placed successfully with Cash on Delivery!",
+            "success"
+          );
           setTimeout(() => {
             navigate("/orders", {
               state: {
-                message: "Order placed successfully!",
-                orderId: response.data?.paymentId || orderId,
+                message: "Order placed successfully with Cash on Delivery!",
+                orderId: response.data?.orderId || orderId,
               },
             });
-          }, 3000);
+          }, 2000);
         } else {
           setError(
             response.data.message ||

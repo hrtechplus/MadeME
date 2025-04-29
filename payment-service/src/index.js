@@ -6,6 +6,7 @@ const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const paymentRoutes = require("./routes/paymentRoutes");
+const paypalRoutes = require("./routes/paypalRoutes");
 const logger = require("./utils/logger");
 
 const app = express();
@@ -66,6 +67,7 @@ app.get("/health", (req, res) => {
 
 // Routes
 app.use("/api/payment", paymentRoutes);
+app.use("/api/payment/paypal", paypalRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

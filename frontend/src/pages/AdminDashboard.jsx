@@ -458,28 +458,43 @@ const AdminDashboard = () => {
       let paymentData = [];
 
       // Case 1: Response has data.payments structure (most common)
-      if (response.data && response.data.payments && Array.isArray(response.data.payments)) {
+      if (
+        response.data &&
+        response.data.payments &&
+        Array.isArray(response.data.payments)
+      ) {
         paymentData = response.data.payments;
-        console.log(`Found ${paymentData.length} payments in response.data.payments`);
-      } 
+        console.log(
+          `Found ${paymentData.length} payments in response.data.payments`
+        );
+      }
       // Case 2: Response has payments directly
       else if (response.payments && Array.isArray(response.payments)) {
         paymentData = response.payments;
-        console.log(`Found ${paymentData.length} payments in response.payments`);
-      } 
+        console.log(
+          `Found ${paymentData.length} payments in response.payments`
+        );
+      }
       // Case 3: Response has data array directly
       else if (response.data && Array.isArray(response.data)) {
         paymentData = response.data;
-        console.log(`Found ${paymentData.length} payments in response.data array`);
-      } 
+        console.log(
+          `Found ${paymentData.length} payments in response.data array`
+        );
+      }
       // Case 4: Response is the array itself
       else if (Array.isArray(response)) {
         paymentData = response;
-        console.log(`Found ${paymentData.length} payments in direct array response`);
+        console.log(
+          `Found ${paymentData.length} payments in direct array response`
+        );
       }
       // Case 5: No valid payment data found
       else {
-        console.warn("No valid payment data structure found in API response:", response);
+        console.warn(
+          "No valid payment data structure found in API response:",
+          response
+        );
       }
 
       // Set payments data
