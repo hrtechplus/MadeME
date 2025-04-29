@@ -51,24 +51,39 @@ export const CartProvider = ({ children }) => {
     try {
       console.log("Adding item to cart:", item);
 
-      // Validate required fields
-      if (!item.name || typeof item.price !== "number" || !item.quantity) {
-        console.error("Missing required cart item fields:", item);
+      // Validate required fields with better error logging
+      if (!item.name) {
+        console.error("Missing name in cart item:", item);
+        return false;
+      }
+      if (typeof item.price !== "number" || isNaN(item.price)) {
+        console.error("Invalid price in cart item:", item);
+        return false;
+      }
+      if (!item.quantity || typeof item.quantity !== "number" || item.quantity < 1) {
+        console.error("Invalid quantity in cart item:", item);
+        return false;
+      }
+      if (!item.restaurantId) {
+        console.error("Missing restaurantId in cart item:", item);
+        return false;
+      }
+      if (!item.itemId) {
+        console.error("Missing itemId in cart item:", item);
         return false;
       }
 
-      // Create a consistent itemId format that doesn't include userId prefix
-      // The backend will handle user isolation
+      // Ensure itemId is a string
       const normalizedItemId = item.itemId.toString();
 
       // Create the data object with all required fields
       const cartItemData = {
-        userId,
+        userId, // This is from the enclosing scope (current user)
         itemId: normalizedItemId,
         name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        restaurantId: item.restaurantId || "default-restaurant",
+        price: parseFloat(item.price), // Ensure price is a float
+        quantity: parseInt(item.quantity, 10), // Ensure quantity is an integer
+        restaurantId: item.restaurantId,
       };
 
       console.log("Sending cart data:", cartItemData);
@@ -93,7 +108,7 @@ export const CartProvider = ({ children }) => {
       console.log("Item added to cart in database");
       return true; // Return success status
     } catch (err) {
-      console.error("Error adding item to cart:", err);
+      console.error("Error adding item to cart:", err.response ? err.response.data : err);
       return false; // Return failure status
     }
   };

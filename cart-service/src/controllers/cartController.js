@@ -45,19 +45,6 @@ exports.addToCart = async (req, res) => {
 
     let cart = await Cart.findOne({ userId });
 
-    // Check restaurant consistency if cart exists
-    if (cart && cart.items.length > 0) {
-      const existingRestaurantId = cart.items[0].restaurantId;
-
-      // If adding item from a different restaurant, return error
-      if (existingRestaurantId !== restaurantId) {
-        return res.status(400).json({
-          message:
-            "Cannot add items from different restaurants to the same cart. Please clear your cart first.",
-        });
-      }
-    }
-
     if (!cart) {
       // Create new cart if it doesn't exist
       console.log(`Creating new cart for user ${userId}`);

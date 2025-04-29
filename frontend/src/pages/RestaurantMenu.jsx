@@ -45,7 +45,7 @@ function RestaurantMenu() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const {
-    cartItems,
+    cart,  // Changed from cartItems to cart to match CartContext
     addToCart,
     updateQuantity,
     removeFromCart,
@@ -267,7 +267,7 @@ function RestaurantMenu() {
   }, {});
 
   const calculateCartTotal = () => {
-    return cartItems.reduce(
+    return cart.reduce(
       (total, item) => total + item.price * item.quantity,
       0
     );
@@ -470,7 +470,7 @@ function RestaurantMenu() {
 
               <Divider sx={{ my: 2 }} />
 
-              {!cartItems || cartItems.length === 0 ? (
+              {!cart || cart.length === 0 ? (
                 <Box sx={{ py: 4, textAlign: "center" }}>
                   <ShoppingCartOutlined
                     sx={{ fontSize: 48, color: "text.disabled", mb: 2 }}
@@ -488,7 +488,7 @@ function RestaurantMenu() {
                     spacing={2}
                     sx={{ maxHeight: 320, overflowY: "auto", pr: 1, mb: 3 }}
                   >
-                    {cartItems.map((item) => (
+                    {cart.map((item) => (
                       <Paper
                         key={item.itemId}
                         elevation={0}
