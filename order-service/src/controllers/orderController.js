@@ -262,12 +262,16 @@ exports.cancelOrder = async (req, res) => {
         .json({ message: "Not authorized to cancel this order" });
     }
 
-    // Allow cancellation if order is in PENDING, VERIFYING or PREPARING status
-    if (order.status !== "PENDING" && order.status !== "VERIFYING" && order.status !== "PREPARING") {
+    // Only allow cancellation if order is in VERIFYING, PENDING, or PREPARING status
+    if (
+      order.status !== "VERIFYING" &&
+      order.status !== "PENDING" &&
+      order.status !== "PREPARING"
+    ) {
       return res.status(400).json({
         message: "Order cannot be cancelled",
         details:
-          "Orders can only be cancelled while in pending, verifying or preparing status",
+          "Orders can only be cancelled while in verifying, pending, or preparing status",
       });
     }
 
@@ -594,6 +598,296 @@ exports.trackOrder = async (req, res) => {
     console.error("Error tracking order:", error);
     res.status(500).json({
       message: "Error tracking order",
+      error: error.message,
+    });
+  }
+};
+
+// Create order by admin (admin only)
+exports.createOrderByAdmin = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const {
+      userId,
+      restaurantId,
+      items,
+      deliveryAddress,
+      total,
+      status = "PENDING",
+    } = req.body;
+
+    if (!items || items.length === 0) {
+      return res.status(400).json({ message: "Order items cannot be empty" });
+    }
+
+    // Admin can create order with custom status
+    const order = new Order({
+      userId,
+      restaurantId,
+      items,
+      total,
+      deliveryAddress,
+      status,
+      restaurantResponse: status === "CONFIRMED" ? "ACCEPTED" : "PENDING",
+      adminCreated: true,
+      createdBy: req.userId, // Store the admin ID who created this order
+    });
+
+    await order.save();
+    res.status(201).json({
+      success: true,
+      message: "Order created successfully by admin",
+      order,
+    });
+  } catch (error) {
+    console.error("Admin order creation error:", error);
+    res.status(500).json({
+      message: "Error creating order by admin",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// Bulk update orders (admin only)
+exports.bulkUpdateOrders = async (req, res) => {
+  try {
+    const { orderIds, updates } = req.body;
+
+    if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+      return res.status(400).json({ message: "Order IDs array is required" });
+    }
+
+    if (!updates || Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "Updates object is required" });
+    }
+
+    // Prevent changing certain fields directly
+    delete updates._id;
+    delete updates.createdAt;
+    updates.updatedAt = Date.now();
+
+    const result = await Order.updateMany(
+      { _id: { $in: orderIds } },
+      { $set: updates }
+    );
+
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} orders updated successfully`,
+      result,
+    });
+  } catch (error) {
+    console.error("Error bulk updating orders:", error);
+    res.status(500).json({
+      message: "Error bulk updating orders",
+      error: error.message,
+    });
+  }
+};
+
+// Search orders (admin only)
+exports.searchOrders = async (req, res) => {
+  try {
+    const {
+      keyword,
+      status,
+      startDate,
+      endDate,
+      minTotal,
+      maxTotal,
+      restaurantId,
+      userId,
+      page = 1,
+      limit = 20,
+    } = req.query;
+
+    // Build complex query with all filters
+    let query = {};
+
+    // Keyword search (searches in order ID or address fields)
+    if (keyword) {
+      const regex = new RegExp(keyword, "i");
+      query.$or = [
+        { _id: { $regex: regex } },
+        { "deliveryAddress.street": { $regex: regex } },
+        { "deliveryAddress.city": { $regex: regex } },
+        { "deliveryAddress.state": { $regex: regex } },
+        { "deliveryAddress.zipCode": { $regex: regex } },
+      ];
+    }
+
+    // Filter by status
+    if (status) {
+      query.status = status;
+    }
+
+    // Filter by date range
+    if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    // Filter by total price range
+    if (minTotal !== undefined || maxTotal !== undefined) {
+      query.total = {};
+      if (minTotal !== undefined) query.total.$gte = Number(minTotal);
+      if (maxTotal !== undefined) query.total.$lte = Number(maxTotal);
+    }
+
+    // Filter by restaurant ID
+    if (restaurantId) {
+      query.restaurantId = restaurantId;
+    }
+
+    // Filter by user ID
+    if (userId) {
+      query.userId = userId;
+    }
+
+    // Pagination
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Execute query with pagination
+    const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    // Get total count for pagination
+    const totalOrders = await Order.countDocuments(query);
+
+    res.json({
+      success: true,
+      orders,
+      pagination: {
+        total: totalOrders,
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.ceil(totalOrders / Number(limit)),
+      },
+    });
+  } catch (error) {
+    console.error("Error searching orders:", error);
+    res.status(500).json({
+      message: "Error searching orders",
+      error: error.message,
+    });
+  }
+};
+
+// Get order statistics (admin only)
+exports.getOrderStats = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    // Date range filter
+    let dateFilter = {};
+    if (startDate && endDate) {
+      dateFilter = {
+        createdAt: {
+          $gte: new Date(startDate),
+          $lte: new Date(endDate),
+        },
+      };
+    }
+
+    // Get total orders
+    const totalOrders = await Order.countDocuments(dateFilter);
+
+    // Get counts by status
+    const statusCounts = await Order.aggregate([
+      { $match: dateFilter },
+      { $group: { _id: "$status", count: { $sum: 1 } } },
+    ]);
+
+    // Format status counts as an object
+    const ordersByStatus = statusCounts.reduce((acc, curr) => {
+      acc[curr._id] = curr.count;
+      return acc;
+    }, {});
+
+    // Get revenue stats
+    const revenueStats = await Order.aggregate([
+      {
+        $match: { ...dateFilter, status: { $nin: ["CANCELLED", "REJECTED"] } },
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$total" },
+          avgOrderValue: { $avg: "$total" },
+          minOrderValue: { $min: "$total" },
+          maxOrderValue: { $max: "$total" },
+        },
+      },
+    ]);
+
+    // Get orders by restaurant
+    const ordersByRestaurant = await Order.aggregate([
+      { $match: dateFilter },
+      { $group: { _id: "$restaurantId", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 },
+    ]);
+
+    // Response with statistics
+    res.json({
+      success: true,
+      statistics: {
+        totalOrders,
+        ordersByStatus,
+        revenue:
+          revenueStats.length > 0
+            ? {
+                totalRevenue: revenueStats[0].totalRevenue,
+                avgOrderValue: revenueStats[0].avgOrderValue,
+                minOrderValue: revenueStats[0].minOrderValue,
+                maxOrderValue: revenueStats[0].maxOrderValue,
+              }
+            : {
+                totalRevenue: 0,
+                avgOrderValue: 0,
+                minOrderValue: 0,
+                maxOrderValue: 0,
+              },
+        topRestaurants: ordersByRestaurant,
+      },
+    });
+  } catch (error) {
+    console.error("Error getting order statistics:", error);
+    res.status(500).json({
+      message: "Error getting order statistics",
+      error: error.message,
+    });
+  }
+};
+
+// Bulk delete orders (admin only)
+exports.bulkDeleteOrders = async (req, res) => {
+  try {
+    const { orderIds } = req.body;
+
+    if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+      return res.status(400).json({ message: "Order IDs array is required" });
+    }
+
+    const result = await Order.deleteMany({ _id: { $in: orderIds } });
+
+    res.json({
+      success: true,
+      message: `${result.deletedCount} orders deleted successfully`,
+      result,
+    });
+  } catch (error) {
+    console.error("Error bulk deleting orders:", error);
+    res.status(500).json({
+      message: "Error bulk deleting orders",
       error: error.message,
     });
   }

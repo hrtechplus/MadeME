@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const userRoutes = require("./routes/userRoutes");
@@ -27,32 +26,6 @@ app.use(
     credentials: true,
   })
 );
-
-// Rate limiting - separate configuration for login and general API
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  message: { message: "Too many requests, please try again later" },
-});
-
-// More permissive rate limiter specifically for login endpoints
-const loginLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutes
-  max: 20, // 20 login attempts per 5 minutes
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful logins against the rate limit
-  message: { message: "Too many login attempts, please try again later" },
-});
-
-// Apply specific rate limiter to auth routes that need it
-app.use("/api/auth/login", loginLimiter);
-app.use("/api/auth/register", loginLimiter);
-
-// Apply general limiter to all other routes
-app.use(generalLimiter);
 
 // Logging
 app.use(morgan("dev"));

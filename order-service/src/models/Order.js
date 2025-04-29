@@ -71,6 +71,33 @@ const orderSchema = new mongoose.Schema({
   driverId: {
     type: String,
   },
+  // Admin-specific fields
+  adminCreated: {
+    type: Boolean,
+    default: false,
+  },
+  createdBy: {
+    type: String,
+    // This can store the admin user ID who created the order
+  },
+  adminNotes: {
+    type: String,
+    // Internal notes visible only to admins
+  },
+  statusHistory: [
+    {
+      status: String,
+      timestamp: {
+        type: Date,
+        default: Date.now,
+      },
+      updatedBy: String, // User or admin ID who updated the status
+    },
+  ],
+  lastModifiedBy: {
+    type: String,
+    // ID of the user who last modified the order
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -81,8 +108,19 @@ const orderSchema = new mongoose.Schema({
   },
 });
 
-// Update timestamp on save
+// Track status changes for better admin auditing
 orderSchema.pre("save", function (next) {
+  // If the status has changed, add to status history
+  if (this.isModified("status")) {
+    // Create entry in statusHistory (assuming updatedBy might be set elsewhere)
+    this.statusHistory = this.statusHistory || [];
+    this.statusHistory.push({
+      status: this.status,
+      timestamp: new Date(),
+      updatedBy: this.lastModifiedBy || "system", // Default to "system" if no user specified
+    });
+  }
+
   this.updatedAt = Date.now();
   next();
 });

@@ -6,6 +6,15 @@ const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const orderRoutes = require("./routes/orderRoutes");
+const fs = require("fs");
+const path = require("path");
+
+// Try to load environment-specific variables (useful for local development)
+const localEnvPath = path.join(__dirname, "../../.env.local");
+if (fs.existsSync(localEnvPath)) {
+  console.log("Loading local environment variables from .env.local");
+  require("dotenv").config({ path: localEnvPath });
+}
 
 const app = express();
 
@@ -29,7 +38,8 @@ app.use(limiter);
 app.use(morgan("combined"));
 
 // Body parsing
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // Root health check
 app.get("/health", (req, res) => {
@@ -37,35 +47,67 @@ app.get("/health", (req, res) => {
     status: "ok",
     service: "order-service",
     timestamp: new Date().toISOString(),
+    mongodbStatus:
+      mongoose.connection.readyState === 1 ? "connected" : "disconnected",
   });
 });
 
-// Routes
-app.use("/api/order", orderRoutes);
+// Routes - Using API specific path prefix
+app.use("/api/orders", orderRoutes);
 
-// Error handling middleware
+// Error handling middleware with improved details
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error("Error details:", err);
+  console.error("Stack trace:", err.stack);
+
   res.status(500).json({
     message: "Something went wrong!",
     error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    path: req.path,
+    method: req.method,
   });
 });
 
-// Connect to MongoDB
+// Connect to MongoDB with enhanced error handling
+console.log(
+  `Connecting to MongoDB... (${process.env.MONGODB_URI.replace(
+    /\/\/([^:]+):([^@]+)@/,
+    "//***:***@"
+  )})`
+);
+
 mongoose
   .connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    serverSelectionTimeoutMS: 5000,
+    serverSelectionTimeoutMS: 10000, // Increased timeout
+    connectTimeoutMS: 10000, // Increased timeout
   })
-  .then(() => console.log("Connected to MongoDB"))
+  .then(() => {
+    console.log("Connected to MongoDB successfully");
+  })
   .catch((err) => {
-    console.error("MongoDB connection error:", err);
-    process.exit(1);
+    console.error("MongoDB connection error details:", err);
+
+    if (err.name === "MongoServerSelectionError") {
+      console.error(
+        "Could not connect to any MongoDB server. Is MongoDB running?"
+      );
+    }
+    // Don't exit in development mode to allow time for MongoDB to start up (e.g., in Docker)
+    if (process.env.NODE_ENV === "production") {
+      process.exit(1);
+    }
   });
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`Order service running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(
+    `MongoDB status: ${
+      mongoose.connection.readyState === 1 ? "connected" : "disconnected"
+    }`
+  );
+  console.log(`API base URL: http://localhost:${PORT}/api/orders`);
 });

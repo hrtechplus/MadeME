@@ -33,7 +33,7 @@ function Orders() {
       const userId = localStorage.getItem("userId") || "test-user";
 
       const response = await fetch(
-        `${serviceUrls.order}/api/order/user/${userId}`,
+        `${serviceUrls.order}/api/orders/user/${userId}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,

@@ -918,3 +918,137 @@ exports.getAllPayments = async (req, res) => {
     });
   }
 };
+
+// Create payment intent for Stripe
+exports.createPaymentIntent = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      logger.error("Validation errors:", errors.array());
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { orderId, amount, userId, email } = req.body;
+    logger.info(
+      `Creating payment intent for order ${orderId} with amount $${amount}`
+    );
+
+    // Create a payment record
+    const payment = new Payment({
+      orderId,
+      userId,
+      amount,
+      status: "PENDING",
+      paymentMethod: "CARD",
+      transactionId: `stripe_init_${Date.now()}`,
+      metadata: { email },
+    });
+
+    await payment.save();
+    logger.info(`Created payment record with ID: ${payment._id}`);
+
+    // In a real implementation, we would create a Stripe payment intent here
+    // For now, we'll just return a successful response
+
+    return res.status(200).json({
+      success: true,
+      paymentId: payment._id,
+      clientSecret: `mock_client_secret_${Date.now()}`,
+      amount: amount,
+    });
+  } catch (error) {
+    logger.error(`Error creating payment intent: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      message: "Error creating payment intent",
+      error: error.message,
+    });
+  }
+};
+
+// Process payment (handles both card and COD)
+exports.processPayment = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      logger.error("Validation errors:", errors.array());
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { orderId, amount, paymentMethod = "CARD" } = req.body;
+    logger.info(
+      `Processing ${paymentMethod} payment for order ${orderId} with amount $${amount}`
+    );
+
+    // Generate a unique transaction ID
+    const transactionId = `payment_${paymentMethod.toLowerCase()}_${Date.now()}`;
+
+    // Create payment record
+    const payment = new Payment({
+      orderId,
+      userId: req.userData?.userId || "guest-user",
+      amount,
+      status: paymentMethod === "COD" ? "PENDING" : "COMPLETED",
+      paymentMethod,
+      transactionId,
+      metadata: { processedAt: new Date().toISOString() },
+    });
+
+    await payment.save();
+    logger.info(`Created payment record with ID: ${payment._id}`);
+
+    // Update order status in order service
+    try {
+      const orderStatus = paymentMethod === "COD" ? "PENDING" : "CONFIRMED";
+      await axios.patch(
+        `${
+          process.env.ORDER_SERVICE_URL || "http://localhost:5001"
+        }/api/orders/${orderId}/status`,
+        { status: orderStatus },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: req.headers.authorization,
+          },
+        }
+      );
+      logger.info(`Updated order ${orderId} status to ${orderStatus}`);
+    } catch (orderError) {
+      logger.error(`Error updating order status: ${orderError.message}`);
+      // Continue with payment confirmation even if order update fails
+    }
+
+    return res.status(200).json({
+      success: true,
+      paymentId: payment._id,
+      orderId,
+      transactionId,
+      status: payment.status,
+    });
+  } catch (error) {
+    logger.error(`Error processing payment: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      message: "Error processing payment",
+      error: error.message,
+    });
+  }
+};
+
+// Handle Stripe webhook
+exports.handleWebhook = async (req, res) => {
+  try {
+    // Get the raw body as a string
+    const stripeBody = req.body.toString("utf8");
+    logger.info("Received Stripe webhook event");
+
+    // In a real implementation, we would verify the webhook signature here
+    // For now, we'll just acknowledge receipt
+
+    return res.status(200).json({ received: true });
+  } catch (error) {
+    logger.error(`Error handling Stripe webhook: ${error.message}`);
+    // Still return 200 to prevent retries
+    return res.status(200).json({ received: true, error: error.message });
+  }
+};

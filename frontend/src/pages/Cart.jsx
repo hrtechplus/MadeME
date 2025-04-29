@@ -35,7 +35,7 @@ const Cart = () => {
 
   const loadOrderForModification = async (orderId) => {
     try {
-      const response = await api.get(`/api/order/${orderId}`);
+      const response = await api.get(`/api/orders/${orderId}`);
       setModifiedOrder(response.data);
 
       // Pre-fill the cart with order items
@@ -125,7 +125,7 @@ const Cart = () => {
       };
 
       const response = await api.patch(
-        `/api/order/${modifiedOrder._id}/modify`,
+        `/api/orders/${modifiedOrder._id}/modify`,
         orderData
       );
 

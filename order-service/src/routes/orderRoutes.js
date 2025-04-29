@@ -6,6 +6,8 @@ const orderController = require("../controllers/orderController");
 // Admin routes
 const { verifyToken, verifyAdmin } = require("../middleware/auth");
 
+// === ADMIN ROUTES ===
+
 // Get all orders (admin only)
 router.get(
   "/admin/all",
@@ -14,11 +16,79 @@ router.get(
   orderController.getAllOrders
 );
 
+// Create order by admin (admin only)
+router.post(
+  "/admin/create",
+  verifyToken,
+  verifyAdmin,
+  [
+    body("userId").notEmpty(),
+    body("restaurantId").notEmpty(),
+    body("items").isArray(),
+    body("total").isNumeric(),
+    body("deliveryAddress").isObject(),
+    body("deliveryAddress.street").notEmpty(),
+    body("deliveryAddress.city").notEmpty(),
+    body("deliveryAddress.state").notEmpty(),
+    body("deliveryAddress.zipCode").notEmpty(),
+    body("status")
+      .optional()
+      .isIn([
+        "VERIFYING",
+        "PENDING",
+        "CONFIRMED",
+        "PREPARING",
+        "OUT_FOR_DELIVERY",
+        "DELIVERED",
+      ]),
+  ],
+  orderController.createOrderByAdmin
+);
+
+// Bulk update orders (admin only)
+router.patch(
+  "/admin/bulk-update",
+  verifyToken,
+  verifyAdmin,
+  [body("orderIds").isArray(), body("updates").isObject()],
+  orderController.bulkUpdateOrders
+);
+
+// Bulk delete orders (admin only)
+router.delete(
+  "/admin/bulk-delete",
+  verifyToken,
+  verifyAdmin,
+  [body("orderIds").isArray()],
+  orderController.bulkDeleteOrders
+);
+
+// Advanced search orders (admin only)
+router.get(
+  "/admin/search",
+  verifyToken,
+  verifyAdmin,
+  orderController.searchOrders
+);
+
+// Order statistics (admin only)
+router.get(
+  "/admin/statistics",
+  verifyToken,
+  verifyAdmin,
+  orderController.getOrderStats
+);
+
+// === USER ROUTES ===
+
 // Get orders by user
 router.get("/user/:userId", orderController.getUserOrders);
 
 // Get orders by restaurant
 router.get("/restaurant/:restaurantId", orderController.getRestaurantOrders);
+
+// Get orders by driver
+router.get("/driver/:driverId", orderController.getDriverOrders);
 
 // Get order by ID
 router.get("/:id", orderController.getOrderById);
@@ -61,6 +131,8 @@ router.put("/:id", verifyToken, verifyAdmin, orderController.updateOrder);
 // Update order status
 router.patch(
   "/:id/status",
+  verifyToken,
+  verifyAdmin,
   [
     body("status").isIn([
       "VERIFYING",
@@ -74,6 +146,15 @@ router.patch(
     ]),
   ],
   orderController.updateOrderStatus
+);
+
+// Assign driver to order
+router.post(
+  "/:id/assign-driver",
+  verifyToken,
+  verifyAdmin,
+  [body("driverId").notEmpty()],
+  orderController.assignDriver
 );
 
 // Track order status

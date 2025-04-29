@@ -4,5 +4,16 @@
       "command": "npx",
       "args": ["@playwright/mcp@latest", "--headless"]
     }
+  },
+
+  "mcpServers": {
+    "paypal": {
+      "command": "npx",
+      "args": ["-y", "@paypal/mcp", "--tools=all"],
+      "env": {
+        "PAYPAL_ACCESS_TOKEN": "9d0fad49512ff218ed55ece44c36598fe08aff060dc19a0a0cb7bd93c0d1744c",
+        "PAYPAL_ENVIRONMENT": "SANDBOX"
+      }
+    }
   }
 }

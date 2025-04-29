@@ -308,7 +308,7 @@ const AdminDashboard = () => {
     orderId: null,
   });
 
-  const { serviceUrls, handleApiCall } = useApi();
+  const { serviceUrls, handleApiCall, makeApiCall } = useApi();
   const { showToast } = useToast();
 
   // Function to fetch user details and update the cache
@@ -393,16 +393,16 @@ const AdminDashboard = () => {
         queryParams.append("endDate", dateFilter.endDate);
       }
 
-      const response = await handleApiCall(
-        fetch(
-          `${serviceUrls.order}/api/order/admin/all?${queryParams.toString()}`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-              "x-admin-auth": "true", // Add special admin header for development mode
-            },
-          }
-        )
+      // Use makeApiCall instead of direct fetch for consistent path handling
+      const response = await makeApiCall(
+        "order",
+        `orders/admin/all?${queryParams.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+        }
       );
 
       setOrders(response.data);
@@ -519,17 +519,15 @@ const AdminDashboard = () => {
 
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
-      await handleApiCall(
-        fetch(`${serviceUrls.order}/api/order/${orderId}/status`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-            "x-admin-auth": "true", // Add special admin header for development mode
-          },
-          body: JSON.stringify({ status: newStatus }),
-        })
-      );
+      await makeApiCall("order", `orders/${orderId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "x-admin-auth": "true",
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
 
       showToast(`Order status updated to ${newStatus}`, "success");
 
@@ -546,7 +544,7 @@ const AdminDashboard = () => {
       }
     } catch (error) {
       console.error("Error updating order status:", error);
-      showToast("Failed to update order status", "error");
+      showToast(`Failed to update order status: ${error.message}`, "error");
     }
   };
 

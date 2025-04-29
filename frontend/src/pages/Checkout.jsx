@@ -67,7 +67,7 @@ const Checkout = () => {
       console.log("Creating order with data:", orderData);
 
       // Create order in the order service
-      const orderResponse = await fetch(`${serviceUrls.order}/api/order`, {
+      const orderResponse = await fetch(`${serviceUrls.order}/api/orders`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
