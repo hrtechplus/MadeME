@@ -35,3 +35,5 @@
 {"level":"error","message":"Error updating order status: Request failed with status code 403","service":"payment-service","timestamp":"2025-04-29T14:58:25.280Z"}
 {"level":"error","message":"Error updating order status: Request failed with status code 403","service":"payment-service","timestamp":"2025-04-29T15:01:14.134Z"}
 {"level":"error","message":"Error updating order status: Request failed with status code 403","service":"payment-service","timestamp":"2025-04-29T15:23:33.708Z"}
+{"level":"error","message":"Error updating order status: Request failed with status code 403","service":"payment-service","timestamp":"2025-04-29T15:34:07.883Z"}
+{"level":"error","message":"Error updating order status: Request failed with status code 403","service":"payment-service","timestamp":"2025-04-29T15:41:07.458Z"}

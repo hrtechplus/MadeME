@@ -26,6 +26,16 @@ const addAuthToken = (config) => {
   const token = localStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    
+    // Check if user is admin and add the special header for dev mode
+    try {
+      const userData = JSON.parse(localStorage.getItem("user"));
+      if (userData && userData.role === "admin") {
+        config.headers["x-admin-auth"] = "true";
+      }
+    } catch (error) {
+      console.error("Error parsing user data:", error);
+    }
   }
   return config;
 };

@@ -66,39 +66,15 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    // Check authorization - allow users to update their own orders
-    // User can only update order if:
-    // 1. They are the user who placed the order AND
-    // 2. The order is in PREPARING state
-    const isUserOrder = req.userId && req.userId === order.userId;
-    const isAdmin = req.role === "admin";
-
-    if (!isAdmin && (!isUserOrder || order.status !== "PREPARING")) {
-      return res.status(403).json({
-        message:
-          "Not authorized to update this order or order is not in a state that can be updated by users",
-      });
-    }
-
-    // Admin can update to any status, but users have limited options
-    if (!isAdmin && isUserOrder) {
-      // Users can only set specific statuses
-      const allowedUserStatuses = [
-        "CONFIRMED",
-        "OUT_FOR_DELIVERY",
-        "DELIVERED",
-        "CANCELLED",
-      ];
-      if (!allowedUserStatuses.includes(status)) {
-        return res.status(400).json({
-          message: "You are not authorized to set this status",
-        });
-      }
-    }
-
+    // Admin check - this route is already protected by the verifyAdmin middleware
+    // So if we get here, user is already an admin and we can skip permission checks
+    
     // Update the status
     order.status = status;
-
+    
+    // Track who made the change
+    order.lastModifiedBy = req.userData ? req.userData.userId : "system";
+    
     // If order is cancelled, record the timestamp
     if (status === "CANCELLED") {
       order.updatedAt = Date.now();

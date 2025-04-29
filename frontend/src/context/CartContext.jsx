@@ -60,7 +60,11 @@ export const CartProvider = ({ children }) => {
         console.error("Invalid price in cart item:", item);
         return false;
       }
-      if (!item.quantity || typeof item.quantity !== "number" || item.quantity < 1) {
+      if (
+        !item.quantity ||
+        typeof item.quantity !== "number" ||
+        item.quantity < 1
+      ) {
         console.error("Invalid quantity in cart item:", item);
         return false;
       }
@@ -108,7 +112,10 @@ export const CartProvider = ({ children }) => {
       console.log("Item added to cart in database");
       return true; // Return success status
     } catch (err) {
-      console.error("Error adding item to cart:", err.response ? err.response.data : err);
+      console.error(
+        "Error adding item to cart:",
+        err.response ? err.response.data : err
+      );
       return false; // Return failure status
     }
   };

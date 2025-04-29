@@ -45,7 +45,7 @@ function RestaurantMenu() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const {
-    cart,  // Changed from cartItems to cart to match CartContext
+    cart, // Changed from cartItems to cart to match CartContext
     addToCart,
     updateQuantity,
     removeFromCart,
@@ -267,10 +267,7 @@ function RestaurantMenu() {
   }, {});
 
   const calculateCartTotal = () => {
-    return cart.reduce(
-      (total, item) => total + item.price * item.quantity,
-      0
-    );
+    return cart.reduce((total, item) => total + item.price * item.quantity, 0);
   };
 
   return (
