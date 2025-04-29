@@ -1799,3 +1799,18 @@
 {"level":"info","message":"PayPal order created successfully:","service":"payment-service","timestamp":"2025-04-29T09:52:45.740Z"}
 {"level":"info","message":"Generated PayPal approval URL: https://www.sandbox.paypal.com/checkoutnow?token=4CM32461Y0808535B","service":"payment-service","timestamp":"2025-04-29T09:52:45.921Z"}
 {"level":"info","message":"::1 - - [29/Apr/2025:09:52:45 +0000] \"POST /api/payment/paypal/create-order HTTP/1.1\" 200 174 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T09:52:45.924Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T09:55:08.726Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-29T09:55:10.762Z"}
+{"level":"info","message":"Creating PayPal order for orderId: 6810a224f327be0131db0b8e, amount: 12.99","service":"payment-service","timestamp":"2025-04-29T09:55:51.180Z"}
+{"level":"info","message":"Initializing PayPal client with provided credentials","service":"payment-service","timestamp":"2025-04-29T09:55:51.373Z"}
+{"level":"info","message":"Using PayPal SANDBOX environment","service":"payment-service","timestamp":"2025-04-29T09:55:51.373Z"}
+{"level":"info","message":"Executing PayPal OrdersCreateRequest...","service":"payment-service","timestamp":"2025-04-29T09:55:51.374Z"}
+{"level":"info","message":"PayPal order created successfully:","service":"payment-service","timestamp":"2025-04-29T09:55:53.557Z"}
+{"level":"info","message":"Generated PayPal approval URL: https://www.sandbox.paypal.com/checkoutnow?token=5VM72448WU820264L","service":"payment-service","timestamp":"2025-04-29T09:55:53.737Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:09:55:53 +0000] \"POST /api/payment/paypal/create-order HTTP/1.1\" 200 174 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T09:55:53.742Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T09:58:17.339Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-29T09:58:19.325Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T10:01:30.980Z"}
+{"code":"ETIMEOUT","hostname":"_mongodb._tcp.mademe.eaikf23.mongodb.net","level":"error","message":"MongoDB connection error: querySrv ETIMEOUT _mongodb._tcp.mademe.eaikf23.mongodb.net","service":"payment-service","stack":"Error: querySrv ETIMEOUT _mongodb._tcp.mademe.eaikf23.mongodb.net\n    at QueryReqWrap.onresolve [as oncomplete] (node:internal/dns/promises:293:17)","syscall":"querySrv","timestamp":"2025-04-29T10:01:56.121Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T10:03:10.774Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-29T10:03:12.984Z"}

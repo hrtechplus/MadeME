@@ -177,7 +177,13 @@ function Payment() {
     setError(null);
 
     try {
-      console.log("Creating PayPal order...");
+      console.log("Initiating PayPal payment process");
+
+      // Detect platform - this could be expanded with more sophisticated detection
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const platform = isMobile ? "mobile" : "web";
+
+      console.log(`Detected platform: ${platform}`);
 
       // Create a PayPal order
       const response = await fetch(
@@ -192,29 +198,51 @@ function Payment() {
             orderId,
             amount: parseFloat(amount),
             userId: localStorage.getItem("userId") || "guest-user",
+            platform: platform,
           }),
         }
       );
 
       // Handle HTTP errors
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(
-          `HTTP error ${response.status}: ${response.statusText}`
+          errorData.message ||
+            `HTTP error ${response.status}: ${response.statusText}`
         );
       }
 
       // Parse the JSON response
       const data = await response.json();
-      console.log("PayPal order response:", data);
+      console.log("PayPal order creation response:", data);
 
       if (!data || !data.success) {
         throw new Error(
-          data?.message || data?.detail || "Failed to create PayPal order"
+          data?.message || data?.error || "Failed to create PayPal order"
         );
       }
 
-      // Save order ID to session storage for the return flow
+      // Save order ID and PayPal order ID to session storage for the return flow
       sessionStorage.setItem("currentOrderId", orderId);
+      sessionStorage.setItem("paypalOrderId", data.paypalOrderId);
+      sessionStorage.setItem("paymentId", data.paymentId);
+
+      // Check if we need to use mock PayPal flow
+      const useMockPayPal = import.meta.env.VITE_PAYPAL_ENABLE_MOCK === "true";
+
+      if (useMockPayPal && process.env.NODE_ENV !== "production") {
+        console.log("Using mock PayPal flow for development");
+
+        // Wait briefly to simulate redirect
+        setTimeout(() => {
+          // Directly go to success page with mock parameters
+          navigate(
+            `/payment/success?token=${data.paypalOrderId}&paymentId=${data.paymentId}`
+          );
+        }, 1500);
+
+        return;
+      }
 
       if (data.approvalUrl) {
         // Log success message and redirect URL

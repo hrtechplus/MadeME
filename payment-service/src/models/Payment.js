@@ -15,7 +15,7 @@ const paymentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["PENDING", "COMPLETED", "FAILED"],
+    enum: ["PENDING", "PROCESSING", "COMPLETED", "FAILED", "REFUNDED"],
     default: "PENDING",
   },
   transactionId: {
@@ -35,10 +35,16 @@ const paymentSchema = new mongoose.Schema({
   paypalOrderId: String,
   paypalPaymentId: String,
 
-  // Flag to prevent duplicate processing of payments
+  // Processing flag to prevent duplicate transactions
   processing: {
     type: Boolean,
     default: false,
+  },
+
+  // Metadata for additional information (platform, device, etc.)
+  metadata: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {},
   },
 
   // For error tracking

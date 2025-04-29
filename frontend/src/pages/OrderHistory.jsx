@@ -20,18 +20,19 @@ import {
   InputAdornment,
   Card,
   CardContent,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Stack,
+  CardHeader,
+  CardActions,
+  CardMedia,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogContentText,
   DialogActions,
+  Avatar,
+  Badge,
+  Tooltip,
 } from "@mui/material";
 import {
-  ExpandMore,
   LocalShipping,
   AccessTime,
   Receipt,
@@ -41,10 +42,15 @@ import {
   Search,
   FilterList,
   SortByAlpha,
-  PaymentOutlined,
-  CreditCard,
-  LocalAtm,
-  AccountBalanceWallet,
+  Cancel,
+  Warning,
+  Phone,
+  Email,
+  Payment,
+  MenuBook,
+  CalendarToday,
+  Person,
+  Info,
 } from "@mui/icons-material";
 import "../styles/OrderHistory.css";
 
@@ -53,15 +59,15 @@ const OrderHistory = () => {
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [expandedOrder, setExpandedOrder] = useState(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [sortOrder, setSortOrder] = useState("newest");
   const [searchQuery, setSearchQuery] = useState("");
   const [restaurantNames, setRestaurantNames] = useState({});
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  const [statusUpdateDialogOpen, setStatusUpdateDialogOpen] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState(null);
-  const [newStatus, setNewStatus] = useState("");
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelOrderId, setCancelOrderId] = useState(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [viewOrderDetails, setViewOrderDetails] = useState(null);
   const { handleApiCall, serviceUrls } = useApi();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -209,6 +215,8 @@ const OrderHistory = () => {
         return "#4CAF50";
       case "REJECTED":
         return "#f44336";
+      case "CANCELLED":
+        return "#f44336";
       default:
         return "#666";
     }
@@ -227,24 +235,11 @@ const OrderHistory = () => {
       case "DELIVERED":
         return <Store />;
       case "REJECTED":
-        return <Receipt />;
+        return <Cancel />;
+      case "CANCELLED":
+        return <Cancel />;
       default:
         return <Receipt />;
-    }
-  };
-
-  const getPaymentMethodIcon = (method) => {
-    if (!method) return <PaymentOutlined />;
-
-    switch (method.toUpperCase()) {
-      case "CARD":
-        return <CreditCard />;
-      case "COD":
-        return <LocalAtm />;
-      case "PAYPAL":
-        return <AccountBalanceWallet />;
-      default:
-        return <PaymentOutlined />;
     }
   };
 
@@ -259,27 +254,105 @@ const OrderHistory = () => {
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
-  const handleOrderClick = (orderId) => {
-    // Find the order to log its data for debugging
-    const order = orders.find((o) => o._id === orderId);
-    if (order) {
-      console.log("Order details:", order);
-      // Check if items array exists
-      if (
-        !order.items ||
-        !Array.isArray(order.items) ||
-        order.items.length === 0
-      ) {
-        console.warn("Order items missing or empty:", order);
-      }
-    }
-
-    // Toggle expansion
-    setExpandedOrder(expandedOrder === orderId ? null : orderId);
+  const calculateTimeElapsed = (dateString) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffMs = now - date;
+    
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 60) return `${diffMins} min ago`;
+    
+    const diffHrs = Math.floor(diffMins / 60);
+    if (diffHrs < 24) return `${diffHrs} hr ago`;
+    
+    const diffDays = Math.floor(diffHrs / 24);
+    if (diffDays < 30) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+    
+    const diffMonths = Math.floor(diffDays / 30);
+    if (diffMonths < 12) return `${diffMonths} month${diffMonths !== 1 ? 's' : ''} ago`;
+    
+    return `${Math.floor(diffMonths / 12)} year${Math.floor(diffMonths / 12) !== 1 ? 's' : ''} ago`;
   };
 
   const handleTrackOrder = (orderId) => {
     navigate(`/order-tracking/${orderId}`);
+  };
+
+  // Handle opening the cancel dialog
+  const handleOpenCancelDialog = (orderId) => {
+    setCancelOrderId(orderId);
+    setCancelReason("");
+    setCancelDialogOpen(true);
+  };
+
+  // Handle closing the cancel dialog
+  const handleCloseCancelDialog = () => {
+    setCancelDialogOpen(false);
+    setCancelOrderId(null);
+    setCancelReason("");
+  };
+
+  // Handle cancel order
+  const handleCancelOrder = async () => {
+    if (!cancelOrderId) return;
+
+    setIsCancelling(true);
+    try {
+      const response = await fetch(
+        `${serviceUrls.order}/api/order/${cancelOrderId}/cancel`,
+        {
+          method: "POST",  // Changed from PUT to POST to match the backend route
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({ 
+            cancellationReason: cancelReason 
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to cancel order");
+      }
+
+      await response.json();
+
+      // Update the order in the local state
+      const updatedOrders = orders.map((order) =>
+        order._id === cancelOrderId
+          ? { ...order, status: "CANCELLED", rejectionReason: cancelReason }
+          : order
+      );
+      
+      setOrders(updatedOrders);
+      showToast("Order cancelled successfully", "success");
+      handleCloseCancelDialog();
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      showToast(
+        error.message || "Failed to cancel order. Please try again.",
+        "error"
+      );
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  // View order details
+  const handleViewOrderDetails = (order) => {
+    setViewOrderDetails(order);
+  };
+
+  // Close order details
+  const handleCloseOrderDetails = () => {
+    setViewOrderDetails(null);
+  };
+
+  // Check if an order can be cancelled
+  const canCancelOrder = (order) => {
+    return order.status === "PENDING" || order.status === "PREPARING";
   };
 
   // Get summary statistics
@@ -468,6 +541,7 @@ const OrderHistory = () => {
                 <MenuItem value="OUT_FOR_DELIVERY">Out for Delivery</MenuItem>
                 <MenuItem value="DELIVERED">Delivered</MenuItem>
                 <MenuItem value="REJECTED">Rejected</MenuItem>
+                <MenuItem value="CANCELLED">Cancelled</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -502,401 +576,472 @@ const OrderHistory = () => {
         </Typography>
       </Box>
 
-      {/* Orders List */}
-      <Box
-        className="orders-list"
-        sx={{ display: "flex", flexDirection: "column", gap: 3 }}
-      >
+      {/* Orders Cards Grid */}
+      <Grid container spacing={3} className="orders-list">
         {filteredOrders.length === 0 ? (
-          <Paper
-            elevation={1}
-            sx={{ p: 4, borderRadius: 2, textAlign: "center" }}
-          >
-            <Typography variant="h6" color="text.secondary">
-              No orders match your filters
-            </Typography>
-            <Button
-              variant="text"
-              color="primary"
-              onClick={() => {
-                setStatusFilter("ALL");
-                setSortOrder("newest");
-                setSearchQuery("");
-              }}
-              sx={{ mt: 2 }}
+          <Grid item xs={12}>
+            <Paper
+              elevation={1}
+              sx={{ p: 4, borderRadius: 2, textAlign: "center" }}
             >
-              Clear Filters
-            </Button>
-          </Paper>
+              <Typography variant="h6" color="text.secondary">
+                No orders match your filters
+              </Typography>
+              <Button
+                variant="text"
+                color="primary"
+                onClick={() => {
+                  setStatusFilter("ALL");
+                  setSortOrder("newest");
+                  setSearchQuery("");
+                }}
+                sx={{ mt: 2 }}
+              >
+                Clear Filters
+              </Button>
+            </Paper>
+          </Grid>
         ) : (
           filteredOrders.map((order) => (
-            <Paper
-              key={order._id}
-              elevation={2}
-              sx={{
-                borderRadius: 2,
-                overflow: "hidden",
-                transition: "transform 0.2s ease, box-shadow 0.2s ease",
-                "&:hover": {
-                  transform: "translateY(-4px)",
-                  boxShadow: "0 6px 12px rgba(0, 0, 0, 0.1)",
-                },
-              }}
-            >
-              <Box
-                className="order-header"
+            <Grid item xs={12} md={6} lg={4} key={order._id}>
+              <Card 
+                elevation={3}
                 sx={{
-                  p: 3,
-                  bgcolor: "#f8f9fa",
-                  borderBottom: "1px solid #eee",
-                  cursor: "pointer",
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                  "&:hover": {
+                    transform: "translateY(-5px)",
+                    boxShadow: "0 8px 16px rgba(0, 0, 0, 0.1)",
+                  },
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  position: 'relative',
                 }}
-                onClick={() => handleOrderClick(order._id)}
               >
-                <Grid container spacing={2} alignItems="center">
-                  <Grid item xs={12} sm={6}>
-                    <Box className="order-info">
-                      <Typography variant="h6" sx={{ m: 0, fontWeight: 600 }}>
-                        Order #{order._id.slice(-8)}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          mt: 1,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                        }}
-                      >
-                        <AccessTime fontSize="small" />
+                {/* Status Badge */}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    bgcolor: getStatusColor(order.status),
+                    color: 'white',
+                    px: 2,
+                    py: 0.5,
+                    borderBottomLeftRadius: 8,
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    zIndex: 1,
+                  }}
+                >
+                  {order.status.replace(/_/g, " ")}
+                </Box>
+                
+                <CardHeader
+                  avatar={
+                    <Avatar 
+                      sx={{ 
+                        bgcolor: getStatusColor(order.status),
+                      }}
+                    >
+                      {getStatusIcon(order.status)}
+                    </Avatar>
+                  }
+                  title={
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                      Order #{order._id.slice(-8)}
+                    </Typography>
+                  }
+                  subheader={
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                      <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <CalendarToday fontSize="inherit" />
                         {formatDate(order.createdAt)}
                       </Typography>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          mt: 1,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                          color: "primary.main",
-                          fontWeight: 500,
-                        }}
-                      >
-                        <Restaurant fontSize="small" />
-                        {restaurantNames[order.restaurantId] ||
-                          `Restaurant ${order.restaurantId.slice(-4)}`}
+                      <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontStyle: 'italic' }}>
+                        <AccessTime fontSize="inherit" />
+                        {calculateTimeElapsed(order.createdAt)}
                       </Typography>
                     </Box>
-                  </Grid>
-                  <Grid
-                    item
-                    xs={12}
-                    sm={6}
+                  }
+                />
+                
+                <CardContent sx={{ flexGrow: 1, pt: 0 }}>
+                  <Typography 
+                    variant="body2" 
                     sx={{
                       display: "flex",
-                      justifyContent: { xs: "flex-start", sm: "flex-end" },
                       alignItems: "center",
-                      mt: { xs: 2, sm: 0 },
-                      flexWrap: "wrap",
                       gap: 1,
+                      mb: 2,
+                      color: "primary.main",
+                      fontWeight: 500,
                     }}
                   >
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          fontWeight: 600,
-                          color: "primary.main",
-                        }}
-                      >
-                        ${order.total.toFixed(2)}
-                      </Typography>
-                      <Chip
-                        icon={getStatusIcon(order.status)}
-                        label={order.status.replace(/_/g, " ")}
-                        sx={{
-                          py: 2,
-                          px: 1,
-                          fontSize: "0.9rem",
-                          color: "white",
-                          fontWeight: "bold",
-                          bgcolor: getStatusColor(order.status),
-                        }}
-                      />
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Box>
-
-              <Accordion
-                expanded={expandedOrder === order._id}
-                onChange={() => handleOrderClick(order._id)}
-                sx={{ boxShadow: "none" }}
-              >
-                <AccordionSummary
-                  expandIcon={<ExpandMore />}
-                  sx={{ display: "none" }}
-                >
-                  <Typography>Order Details</Typography>
-                </AccordionSummary>
-                <AccordionDetails sx={{ p: 0 }}>
-                  <Box className="order-items" sx={{ p: 3 }}>
-                    <Typography
-                      variant="subtitle1"
-                      sx={{ fontWeight: 600, mb: 2 }}
-                    >
-                      Order Items
-                    </Typography>
-                    {order.items.map((item, index) => (
+                    <Restaurant fontSize="small" />
+                    {restaurantNames[order.restaurantId] ||
+                      `Restaurant ${order.restaurantId.slice(-4)}`}
+                  </Typography>
+                  
+                  <Divider sx={{ mb: 2 }} />
+                  
+                  {/* Order Items */}
+                  <Box sx={{ mb: 2 }}>
+                    {order.items.slice(0, 3).map((item, index) => (
                       <Box
                         key={item.itemId || index}
-                        className="order-item"
                         sx={{
                           display: "flex",
                           justifyContent: "space-between",
                           alignItems: "center",
-                          py: 1.5,
-                          borderBottom: "1px solid #eee",
+                          py: 0.5,
+                          borderBottom: index < Math.min(order.items.length, 3) - 1 ? '1px dashed #eee' : 'none',
                         }}
                       >
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            flex: 1,
-                          }}
-                        >
-                          <Typography
-                            variant="body2"
-                            className="item-quantity"
-                            sx={{
-                              mr: 2,
-                              bgcolor: "primary.50",
-                              color: "primary.main",
-                              px: 1,
-                              py: 0.5,
+                        <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Box 
+                            component="span" 
+                            sx={{ 
+                              mr: 1, 
+                              bgcolor: 'primary.50', 
+                              color: 'primary.main',
+                              px: 0.5,
                               borderRadius: 1,
-                              fontWeight: "bold",
-                              minWidth: "30px",
-                              textAlign: "center",
+                              fontWeight: 'bold',
+                              fontSize: '0.75rem',
                             }}
                           >
                             {item.quantity}x
-                          </Typography>
-                          <Typography
-                            variant="body1"
-                            className="item-name"
-                            sx={{ fontWeight: 500 }}
-                          >
-                            {item.name}
-                          </Typography>
-                        </Box>
-                        <Typography
-                          variant="body1"
-                          className="item-price"
-                          sx={{
-                            fontWeight: 500,
-                            minWidth: "80px",
-                            textAlign: "right",
-                          }}
-                        >
+                          </Box>
+                          {item.name.length > 20 ? `${item.name.substring(0, 20)}...` : item.name}
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                           ${(item.price * item.quantity).toFixed(2)}
                         </Typography>
                       </Box>
                     ))}
-
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        mt: 2,
-                        pt: 2,
-                        borderTop: "2px dashed #eee",
-                      }}
-                    >
-                      <Typography variant="subtitle1">Total Amount:</Typography>
-                      <Typography
-                        variant="subtitle1"
-                        sx={{ fontWeight: "bold" }}
-                      >
-                        ${order.total.toFixed(2)}
+                    
+                    {order.items.length > 3 && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center', fontStyle: 'italic' }}>
+                        +{order.items.length - 3} more items
+                      </Typography>
+                    )}
+                  </Box>
+                  
+                  {/* Delivery Address */}
+                  {order.deliveryAddress && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="caption" sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, color: 'text.secondary' }}>
+                        <LocationOn fontSize="small" sx={{ mt: 0.2 }} />
+                        <span>
+                          {order.deliveryAddress.street}, {order.deliveryAddress.city}, {order.deliveryAddress.state} {order.deliveryAddress.zipCode}
+                        </span>
                       </Typography>
                     </Box>
-                  </Box>
-
-                  <Divider />
-
-                  <Box
-                    className="order-footer"
-                    sx={{ p: 3, bgcolor: "#f9f9f9" }}
+                  )}
+                  
+                  {/* Total Amount */}
+                  <Box 
+                    sx={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      bgcolor: 'grey.50',
+                      p: 1.5,
+                      borderRadius: 1,
+                      mt: 1,
+                    }}
                   >
-                    <Grid container spacing={3}>
-                      <Grid item xs={12} md={6}>
-                        <Box className="delivery-info" sx={{ mb: 2 }}>
-                          <Typography
-                            variant="subtitle1"
-                            sx={{
-                              fontWeight: 600,
-                              mb: 1,
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                            }}
-                          >
-                            <LocationOn /> Delivery Address
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            className="delivery-address"
-                            sx={{ ml: 3 }}
-                          >
-                            {order.deliveryAddress ? (
-                              <>
-                                {order.deliveryAddress.street}
-                                <br />
-                                {order.deliveryAddress.city},{" "}
-                                {order.deliveryAddress.state}{" "}
-                                {order.deliveryAddress.zipCode}
-                              </>
-                            ) : (
-                              "No delivery address information available."
-                            )}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <Box className="payment-info" sx={{ mb: 2 }}>
-                          <Typography
-                            variant="subtitle1"
-                            sx={{
-                              fontWeight: 600,
-                              mb: 1,
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                            }}
-                          >
-                            <Receipt /> Payment Details
-                          </Typography>
-                          <Typography variant="body2" sx={{ ml: 3 }}>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
-                                mb: 0.5,
-                              }}
-                            >
-                              <strong>Payment ID:</strong>{" "}
-                              {order.paymentId || "Pending"}
-                            </Box>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
-                                mb: 0.5,
-                              }}
-                            >
-                              <strong>Payment Method:</strong>
-                              <Box
-                                sx={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 0.5,
-                                }}
-                              >
-                                {getPaymentMethodIcon(order.paymentMethod)}
-                                {order.paymentMethod || "Credit Card"}
-                              </Box>
-                            </Box>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
-                              }}
-                            >
-                              <strong>Total Amount:</strong> $
-                              {order.total.toFixed(2)}
-                            </Box>
-                          </Typography>
-                        </Box>
-                      </Grid>
-                    </Grid>
-
-                    <Box
-                      sx={{
-                        mt: 3,
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        gap: 2,
-                      }}
-                    >
-                      {order.status === "PREPARING" && (
-                        <Button
-                          variant="outlined"
-                          color="secondary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStatusUpdateClick(order._id);
-                          }}
-                        >
-                          Update Status
-                        </Button>
-                      )}
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={() => handleTrackOrder(order._id)}
-                        startIcon={<LocalShipping />}
-                      >
-                        Track Order
-                      </Button>
-                    </Box>
+                    <Typography variant="subtitle2">Total:</Typography>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                      ${order.total.toFixed(2)}
+                    </Typography>
                   </Box>
-                </AccordionDetails>
-              </Accordion>
-            </Paper>
+                </CardContent>
+                
+                <CardActions sx={{ p: 2, pt: 1, justifyContent: 'space-between' }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => handleViewOrderDetails(order)}
+                    startIcon={<Info />}
+                  >
+                    Details
+                  </Button>
+                  
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      size="small"
+                      color="primary"
+                      variant="contained"
+                      onClick={() => handleTrackOrder(order._id)}
+                      startIcon={<LocalShipping />}
+                    >
+                      Track
+                    </Button>
+                    
+                    {canCancelOrder(order) && (
+                      <Button
+                        size="small"
+                        color="error"
+                        variant="outlined"
+                        startIcon={<Cancel />}
+                        onClick={() => handleOpenCancelDialog(order._id)}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </Box>
+                </CardActions>
+              </Card>
+            </Grid>
           ))
         )}
-      </Box>
+      </Grid>
 
-      {/* Status Update Dialog */}
-      <Dialog open={statusUpdateDialogOpen} onClose={handleCloseStatusDialog}>
-        <DialogTitle>Update Order Status</DialogTitle>
-        <DialogContent>
+      {/* Cancel Order Dialog */}
+      <Dialog open={cancelDialogOpen} onClose={handleCloseCancelDialog}>
+        <DialogTitle sx={{ bgcolor: '#fff5f5', color: 'error.main', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Warning color="error" /> Cancel Order
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
           <DialogContentText>
-            Select the new status for this order:
+            Are you sure you want to cancel this order? This action cannot be undone.
           </DialogContentText>
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel id="new-status-label">New Status</InputLabel>
-            <Select
-              labelId="new-status-label"
-              value={newStatus}
-              onChange={handleStatusChange}
-              label="New Status"
-            >
-              <MenuItem value="CONFIRMED">Confirmed</MenuItem>
-              <MenuItem value="OUT_FOR_DELIVERY">Out For Delivery</MenuItem>
-              <MenuItem value="DELIVERED">Delivered</MenuItem>
-              <MenuItem value="CANCELLED">Cancelled</MenuItem>
-            </Select>
-          </FormControl>
+          <TextField
+            autoFocus
+            margin="dense"
+            id="cancel-reason"
+            label="Reason for cancellation (optional)"
+            type="text"
+            fullWidth
+            multiline
+            rows={3}
+            variant="outlined"
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            sx={{ mt: 2 }}
+          />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseStatusDialog} disabled={isUpdatingStatus}>
-            Cancel
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCloseCancelDialog} disabled={isCancelling}>
+            Keep Order
           </Button>
           <Button
-            onClick={handleUpdateStatus}
-            color="primary"
-            disabled={isUpdatingStatus || !newStatus}
+            onClick={handleCancelOrder}
+            color="error"
+            variant="contained"
+            disabled={isCancelling}
+            startIcon={<Cancel />}
           >
-            {isUpdatingStatus ? "Updating..." : "Update"}
+            {isCancelling ? "Cancelling..." : "Yes, Cancel Order"}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Order Details Dialog */}
+      <Dialog 
+        open={!!viewOrderDetails} 
+        onClose={handleCloseOrderDetails}
+        maxWidth="md"
+        fullWidth
+      >
+        {viewOrderDetails && (
+          <>
+            <DialogTitle 
+              sx={{ 
+                bgcolor: getStatusColor(viewOrderDetails.status),
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1 
+              }}
+            >
+              {getStatusIcon(viewOrderDetails.status)} 
+              Order Details #{viewOrderDetails._id.slice(-8)}
+            </DialogTitle>
+            <DialogContent sx={{ mt: 2 }}>
+              <Grid container spacing={3}>
+                {/* Order Info */}
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Order Information
+                  </Typography>
+                  
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <CalendarToday fontSize="small" sx={{ color: 'text.secondary', mt: 0.3 }} />
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>Date Placed</Typography>
+                        <Typography variant="body2" color="text.secondary">{formatDate(viewOrderDetails.createdAt)}</Typography>
+                      </Box>
+                    </Box>
+                    
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <Restaurant fontSize="small" sx={{ color: 'text.secondary', mt: 0.3 }} />
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>Restaurant</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {restaurantNames[viewOrderDetails.restaurantId] || 
+                            `Restaurant ${viewOrderDetails.restaurantId.slice(-4)}`}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <LocationOn fontSize="small" sx={{ color: 'text.secondary', mt: 0.3 }} />
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>Delivery Address</Typography>
+                        {viewOrderDetails.deliveryAddress ? (
+                          <Typography variant="body2" color="text.secondary">
+                            {viewOrderDetails.deliveryAddress.street}, {viewOrderDetails.deliveryAddress.city}, 
+                            {viewOrderDetails.deliveryAddress.state} {viewOrderDetails.deliveryAddress.zipCode}
+                          </Typography>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">No address provided</Typography>
+                        )}
+                      </Box>
+                    </Box>
+                    
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <Payment fontSize="small" sx={{ color: 'text.secondary', mt: 0.3 }} />
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>Payment Information</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {viewOrderDetails.paymentMethod || "Not specified"} 
+                          {viewOrderDetails.paymentId ? ` (ID: ${viewOrderDetails.paymentId})` : ""}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                </Grid>
+                
+                {/* Order Items */}
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Order Items
+                  </Typography>
+                  
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+                    {viewOrderDetails.items.map((item, index) => (
+                      <Box
+                        key={item.itemId || index}
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          py: 1,
+                          borderBottom: index < viewOrderDetails.items.length - 1 ? '1px solid #eee' : 'none',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{ 
+                              fontWeight: 'medium',
+                              bgcolor: 'primary.50',
+                              color: 'primary.main',
+                              width: 24,
+                              height: 24,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              borderRadius: '50%',
+                            }}
+                          >
+                            {item.quantity}
+                          </Typography>
+                          <Typography variant="body2">{item.name}</Typography>
+                        </Box>
+                        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                          ${(item.price * item.quantity).toFixed(2)}
+                        </Typography>
+                      </Box>
+                    ))}
+                    
+                    <Box sx={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      borderTop: '2px dashed #eee',
+                      mt: 2,
+                      pt: 1
+                    }}>
+                      <Typography variant="subtitle2">Total:</Typography>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                        ${viewOrderDetails.total.toFixed(2)}
+                      </Typography>
+                    </Box>
+                  </Paper>
+                </Grid>
+                
+                {/* Status Timeline */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1, mt: 2 }}>
+                    Order Status
+                  </Typography>
+                  
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <Box
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          px: 1.5,
+                          py: 0.5,
+                          borderRadius: 10,
+                          fontSize: '0.875rem',
+                          fontWeight: 'medium',
+                          color: 'white',
+                          bgcolor: getStatusColor(viewOrderDetails.status),
+                        }}
+                      >
+                        {getStatusIcon(viewOrderDetails.status)}&nbsp;
+                        {viewOrderDetails.status.replace(/_/g, " ")}
+                      </Box>
+                    </Box>
+                    
+                    {(viewOrderDetails.status === "REJECTED" || viewOrderDetails.status === "CANCELLED") && 
+                     viewOrderDetails.rejectionReason && (
+                      <Box sx={{ mt: 1, bgcolor: '#fff5f5', p: 1, borderRadius: 1 }}>
+                        <Typography variant="body2" color="error">
+                          <strong>Reason:</strong> {viewOrderDetails.rejectionReason}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Paper>
+                </Grid>
+              </Grid>
+            </DialogContent>
+            <DialogActions sx={{ p: 2 }}>
+              {canCancelOrder(viewOrderDetails) && (
+                <Button
+                  color="error"
+                  startIcon={<Cancel />}
+                  onClick={() => {
+                    handleCloseOrderDetails();
+                    handleOpenCancelDialog(viewOrderDetails._id);
+                  }}
+                >
+                  Cancel Order
+                </Button>
+              )}
+              <Button onClick={handleCloseOrderDetails}>
+                Close
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => handleTrackOrder(viewOrderDetails._id)}
+                startIcon={<LocalShipping />}
+              >
+                Track Order
+              </Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
     </Container>
   );

@@ -19,11 +19,24 @@ app.use(
   })
 );
 
-// Rate limiting
+// Rate limiting - more permissive in development mode
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: process.env.NODE_ENV === "development" ? 500 : 100, // Higher limit in development
+  message: {
+    status: 429,
+    message: "Too many requests, please try again later.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
+
+// Apply payment limiter to PayPal routes
+app.use("/api/payment/paypal", limiter);
+app.use("/api/payment/process", limiter);
+app.use("/api/payment/initiate", limiter);
+
+// Apply general limiter to other routes
 app.use(limiter);
 
 // Logging

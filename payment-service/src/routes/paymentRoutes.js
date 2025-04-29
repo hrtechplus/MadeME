@@ -4,9 +4,9 @@ const { body } = require("express-validator");
 const paymentController = require("../controllers/paymentController");
 const authMiddleware = require("../middleware/auth");
 
-// Apply authentication middleware to all routes except webhook
+// Apply authentication middleware to all routes except webhooks
 router.use((req, res, next) => {
-  if (req.path === "/webhook") {
+  if (req.path === "/webhook" || req.path === "/paypal-webhook") {
     next();
   } else {
     authMiddleware(req, res, next);
@@ -36,24 +36,60 @@ router.post(
   paymentController.processPayment
 );
 
-// Create PayPal order
+// PayPal Payment Routes
+// Create PayPal order - enhanced for web and mobile support
 router.post(
   "/paypal/create-order",
   [
     body("orderId").notEmpty(),
     body("amount").isFloat({ min: 0 }),
-    body("userId").notEmpty(),
+    body("userId").optional(),
+    body("platform").optional().isIn(["web", "mobile"]),
   ],
   paymentController.createPayPalOrder
 );
 
-// Check PayPal setup (diagnostics)
-router.get("/paypal/check-setup", paymentController.checkPayPalSetup);
-
-// Capture PayPal payment
+// Capture PayPal payment - make validation optional for mockPayPal testing
 router.post(
   "/paypal/capture",
-  [body("paypalOrderId").notEmpty()],
+  [
+    body("paypalOrderId").optional({ nullable: true }),
+    body("platform").optional().isIn(["web", "mobile"]),
+    body("mockPayPal").optional().isBoolean(),
+  ],
+  paymentController.capturePayPalPayment
+);
+
+// Get PayPal payment details
+router.get(
+  "/paypal/details/:paymentId",
+  paymentController.getPayPalPaymentDetails
+);
+
+// Mobile-specific PayPal endpoints
+router.post(
+  "/mobile/paypal/create-order",
+  [
+    body("orderId").notEmpty(),
+    body("amount").isFloat({ min: 0 }),
+    body("userId").optional(),
+  ],
+  (req, res, next) => {
+    // Force platform to mobile
+    req.body.platform = "mobile";
+    next();
+  },
+  paymentController.createPayPalOrder
+);
+
+router.post(
+  "/mobile/paypal/notify",
+  [body("paypalOrderId").optional(), body("status").optional()],
+  (req, res, next) => {
+    // Mobile app notification endpoint for payment status updates
+    req.body.platform = "mobile";
+    next();
+  },
   paymentController.capturePayPalPayment
 );
 
@@ -62,6 +98,13 @@ router.post(
   "/webhook",
   express.raw({ type: "application/json" }),
   paymentController.handleWebhook
+);
+
+// Handle PayPal webhook
+router.post(
+  "/paypal-webhook",
+  express.raw({ type: "application/json" }),
+  paymentController.handlePayPalWebhook
 );
 
 // Get payment status

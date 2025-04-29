@@ -48,7 +48,22 @@ function Login() {
       navigate("/");
     } catch (error) {
       console.error("Login error:", error);
-      setError(error.message || "Login failed. Please try again.");
+
+      // Handle specific error messages more gracefully
+      if (
+        error.message.includes("Too Many Requests") ||
+        error.message.includes("429")
+      ) {
+        setError(
+          "Too many login attempts. Please wait a moment and try again."
+        );
+      } else if (error.message.includes("Unexpected token")) {
+        setError(
+          "The server is currently busy. Please try again in a few moments."
+        );
+      } else {
+        setError(error.message || "Login failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

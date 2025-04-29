@@ -28,33 +28,86 @@ const useAuth = () => {
 
       // Use the real user-service microservice
       console.log("Using real user-service for authentication");
-      const response = await fetch(`${serviceUrls.user}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Authentication failed");
+      // Add retry mechanism with exponential backoff
+      let retryCount = 0;
+      const maxRetries = 2;
+      const baseDelay = 1000; // 1 second initial delay
+
+      while (retryCount <= maxRetries) {
+        try {
+          const response = await fetch(`${serviceUrls.user}/api/auth/login`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email, password }),
+          });
+
+          // Handle rate limiting
+          if (response.status === 429) {
+            const retryAfter =
+              response.headers.get("Retry-After") ||
+              Math.pow(2, retryCount) * baseDelay;
+            console.log(`Rate limited. Retrying after ${retryAfter}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, retryAfter));
+            retryCount++;
+            continue;
+          }
+
+          if (!response.ok) {
+            // Try to parse error as JSON first
+            const errorText = await response.text();
+            let errorMessage = "Authentication failed";
+
+            try {
+              const errorData = JSON.parse(errorText);
+              errorMessage = errorData.message || errorMessage;
+            } catch (parseError) {
+              // If parsing fails, use the text directly
+              errorMessage =
+                errorText || `Error: ${response.status} ${response.statusText}`;
+            }
+
+            throw new Error(errorMessage);
+          }
+
+          // Parse the JSON response
+          const text = await response.text();
+          const data = text ? JSON.parse(text) : {};
+
+          if (data.token) {
+            localStorage.setItem("token", data.token);
+            localStorage.setItem("userId", data.user._id);
+            localStorage.setItem("userRole", data.user.role || "customer");
+            localStorage.setItem("userName", data.user.name || "");
+          }
+
+          return {
+            token: data.token,
+            userId: data.user._id,
+            role: data.user.role,
+          };
+        } catch (error) {
+          if (
+            error.message.includes("Unexpected token") &&
+            retryCount < maxRetries
+          ) {
+            // This is likely a parsing error, retry after delay
+            const delay = Math.pow(2, retryCount) * baseDelay;
+            console.log(`Parsing error, retrying after ${delay}ms...`, error);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            retryCount++;
+          } else {
+            // Re-throw the error if it's not a parsing error or if max retries reached
+            throw error;
+          }
+        }
       }
 
-      const data = await response.json();
-
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("userId", data.user._id);
-        localStorage.setItem("userRole", data.user.role || "customer");
-        localStorage.setItem("userName", data.user.name || "");
-      }
-
-      return {
-        token: data.token,
-        userId: data.user._id,
-        role: data.user.role,
-      };
+      throw new Error(
+        "Login failed after multiple attempts. Please try again later."
+      );
     } catch (error) {
       console.error("Login error:", error);
       throw error;
