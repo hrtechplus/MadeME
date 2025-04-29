@@ -26,7 +26,7 @@ const addAuthToken = (config) => {
   const token = localStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-    
+
     // Check if user is admin and add the special header for dev mode
     try {
       const userData = JSON.parse(localStorage.getItem("user"));
@@ -103,9 +103,9 @@ export const orderApi = {
     orderClient.post(`/orders/${orderId}/cancel`, { cancellationReason }),
   // Alternative order cancellation method (doesn't require auth token validation)
   userCancelOrder: (orderId, userId, cancellationReason) =>
-    orderClient.post(`/orders/${orderId}/user-cancel`, { 
-      userId, 
-      cancellationReason 
+    orderClient.post(`/orders/${orderId}/user-cancel`, {
+      userId,
+      cancellationReason,
     }),
 };
 

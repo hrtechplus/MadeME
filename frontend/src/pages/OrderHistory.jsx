@@ -404,20 +404,20 @@ const OrderHistory = () => {
     try {
       // Get user ID directly from localStorage instead of trying to parse JSON
       const userId = localStorage.getItem("userId");
-      
+
       if (!userId) {
         showToast("User information not found. Please log in again.", "error");
         setIsCancelling(false);
         return;
       }
-      
+
       // Use the new alternative method for cancellation
       const response = await fetch(
         `${serviceUrls.order}/api/orders/${cancelOrderId}/user-cancel`,
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             userId: userId,

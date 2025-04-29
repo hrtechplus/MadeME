@@ -7,40 +7,8 @@ const axios = require("axios");
 const { validationResult } = require("express-validator");
 const logger = require("../utils/logger");
 
-// Using the @paypal/checkout-server-sdk for PayPal integration
-const paypal = require("@paypal/checkout-server-sdk");
-
-// Configure PayPal Environment
-function createPayPalClient() {
-  try {
-    const clientId = process.env.PAYPAL_CLIENT_ID;
-    const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
-    const mode = process.env.PAYPAL_MODE || "sandbox";
-
-    if (!clientId || !clientSecret) {
-      logger.error("Missing PayPal credentials");
-      throw new Error("PayPal credentials are missing. Check your .env file.");
-    }
-
-    logger.info(`Initializing PayPal client with mode: ${mode}`);
-
-    // Create the appropriate environment
-    let environment;
-    if (mode === "production" || mode === "live") {
-      environment = new paypal.core.LiveEnvironment(clientId, clientSecret);
-      logger.info("Using PayPal LIVE environment");
-    } else {
-      environment = new paypal.core.SandboxEnvironment(clientId, clientSecret);
-      logger.info("Using PayPal SANDBOX environment");
-    }
-
-    // Return the configured client
-    return new paypal.core.PayPalHttpClient(environment);
-  } catch (error) {
-    logger.error(`Error creating PayPal client: ${error.message}`);
-    throw new Error(`Failed to initialize PayPal client: ${error.message}`);
-  }
-}
+// Using the custom PayPal client with rate-limiting and retry capability
+const paypalUtils = require("../utils/paypal");
 
 // Create a PayPal order
 exports.createPayPalOrder = async (req, res) => {
@@ -70,61 +38,7 @@ exports.createPayPalOrder = async (req, res) => {
     logger.info(`Created payment record with ID: ${payment._id}`);
 
     // Create PayPal Order
-    const paypalClient = createPayPalClient();
-    const request = new paypal.orders.OrdersCreateRequest();
-    request.prefer("return=representation");
-
-    // Define return URLs
-    const returnUrl = `${
-      process.env.FRONTEND_URL || "http://localhost:5173"
-    }/payment/success?orderId=${orderId}&paymentId=${payment._id}`;
-    const cancelUrl = `${
-      process.env.FRONTEND_URL || "http://localhost:5173"
-    }/payment/cancel`;
-
-    logger.info(`PayPal return URL: ${returnUrl}`);
-    logger.info(`PayPal cancel URL: ${cancelUrl}`);
-
-    // Format items for PayPal if provided, otherwise create a generic order
-    const paypalItems =
-      items.length > 0
-        ? items.map((item) => ({
-            name: item.name,
-            description: `${item.name}`,
-            unit_amount: {
-              currency_code: "USD",
-              value: item.price.toString(),
-            },
-            quantity: item.quantity.toString(),
-            category: "DIGITAL_GOODS",
-          }))
-        : [
-            {
-              name: "Food Order",
-              description: `Order #${orderId}`,
-              unit_amount: {
-                currency_code: "USD",
-                value: amount.toString(),
-              },
-              quantity: "1",
-              category: "DIGITAL_GOODS",
-            },
-          ];
-
-    // Calculate breakdown values
-    let itemTotal = 0;
-    if (items.length > 0) {
-      itemTotal = items.reduce(
-        (total, item) => total + item.price * item.quantity,
-        0
-      );
-      itemTotal = parseFloat(itemTotal.toFixed(2));
-    } else {
-      itemTotal = parseFloat(amount);
-    }
-
-    // Build the request body
-    request.requestBody({
+    const request = paypalUtils.client.ordersCreate({
       intent: "CAPTURE",
       purchase_units: [
         {
@@ -136,11 +50,22 @@ exports.createPayPalOrder = async (req, res) => {
             breakdown: {
               item_total: {
                 currency_code: "USD",
-                value: itemTotal.toString(),
+                value: amount.toString(),
               },
             },
           },
-          items: paypalItems,
+          items: [
+            {
+              name: "Food Order",
+              description: `Order #${orderId}`,
+              unit_amount: {
+                currency_code: "USD",
+                value: amount.toString(),
+              },
+              quantity: "1",
+              category: "DIGITAL_GOODS",
+            },
+          ],
         },
       ],
       application_context: {
@@ -148,14 +73,18 @@ exports.createPayPalOrder = async (req, res) => {
         landing_page: "LOGIN",
         shipping_preference: "NO_SHIPPING",
         user_action: "PAY_NOW",
-        return_url: returnUrl,
-        cancel_url: cancelUrl,
+        return_url: `${
+          process.env.FRONTEND_URL || "http://localhost:5173"
+        }/payment/success?orderId=${orderId}&paymentId=${payment._id}`,
+        cancel_url: `${
+          process.env.FRONTEND_URL || "http://localhost:5173"
+        }/payment/cancel`,
       },
     });
 
     // Execute the request to create the order
     logger.info("Sending request to PayPal to create order");
-    const response = await paypalClient.execute(request);
+    const response = await request;
     logger.info(
       `PayPal order created successfully with ID: ${response.result.id}`
     );
@@ -295,15 +224,14 @@ exports.capturePayPalPayment = async (req, res) => {
 
     try {
       // Get PayPal client and create capture request
-      const paypalClient = createPayPalClient();
-      const request = new paypal.orders.OrdersCaptureRequest(paypalOrderId);
+      const request = paypalUtils.client.ordersCapture(paypalOrderId);
       request.requestBody({}); // Empty request body is recommended for standard captures
 
       // Execute the capture request
       logger.info(
         `Sending capture request to PayPal for order ${paypalOrderId}`
       );
-      const captureResponse = await paypalClient.execute(request);
+      const captureResponse = await request;
       logger.info(
         `PayPal capture successful, status: ${captureResponse.result.status}`
       );
@@ -454,11 +382,8 @@ exports.verifyPaymentStatus = async (req, res) => {
     // For PayPal payments, check the status with PayPal if we have an order ID
     if (payment.paypalOrderId) {
       try {
-        const paypalClient = createPayPalClient();
-        const request = new paypal.orders.OrdersGetRequest(
-          payment.paypalOrderId
-        );
-        const response = await paypalClient.execute(request);
+        const request = paypalUtils.client.ordersGet(payment.paypalOrderId);
+        const response = await request;
 
         const paypalStatus = response.result.status;
         logger.info(
@@ -1009,9 +934,8 @@ exports.getPayPalPaymentDetails = async (req, res) => {
 
     // Get detailed information from PayPal
     try {
-      const paypalClient = createPayPalClient();
-      const request = new paypal.orders.OrdersGetRequest(payment.paypalOrderId);
-      const response = await paypalClient.execute(request);
+      const request = paypalUtils.client.ordersGet(payment.paypalOrderId);
+      const response = await request;
 
       return res.json({
         success: true,
@@ -1054,11 +978,10 @@ exports.checkPayPalTransaction = async (req, res) => {
     logger.info(`Admin checking PayPal transaction: ${paypalOrderId}`);
 
     // Get PayPal client
-    const paypalClient = createPayPalClient();
-    const request = new paypal.orders.OrdersGetRequest(paypalOrderId);
+    const request = paypalUtils.client.ordersGet(paypalOrderId);
 
     // Execute the request to get order details
-    const response = await paypalClient.execute(request);
+    const response = await request;
     logger.info(`PayPal order details retrieved for: ${paypalOrderId}`);
 
     // Check if payment exists in our database
