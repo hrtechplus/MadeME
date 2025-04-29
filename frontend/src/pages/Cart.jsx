@@ -1,295 +1,280 @@
-import React, { useState, useEffect } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useApi } from "../context/ApiContext";
-import { useCart } from "../context/CartContext";
-import { useToast } from "../context/ToastContext";
-import {
-  Container,
-  Typography,
-  Box,
-  Paper,
-  Button,
-  IconButton,
-  Divider,
-  CircularProgress,
-  Alert,
-} from "@mui/material";
-import { Add, Remove, Delete, ShoppingBag } from "@mui/icons-material";
+import { CartContext } from "../context/CartContext";
+import { ApiContext } from "../context/ApiContext";
+import { ToastContext } from "../context/ToastContext";
 import "../styles/Cart.css";
 
-function Cart() {
+const Cart = () => {
+  const { cart, updateCartItem, removeFromCart, clearCart } =
+    useContext(CartContext);
+  const { api } = useContext(ApiContext);
+  const { showToast } = useContext(ToastContext);
   const navigate = useNavigate();
-  const { serviceUrls } = useApi();
-  const { showToast } = useToast();
-  const {
-    cart: cartItems,
-    loading,
-    error,
-    updateQuantity,
-    removeFromCart,
-    clearCart,
-  } = useCart();
+  const [isModifying, setIsModifying] = useState(false);
+  const [modifiedOrder, setModifiedOrder] = useState(null);
+  const [specialInstructions, setSpecialInstructions] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState({
+    street: "",
+    city: "",
+    state: "",
+    zipCode: "",
+  });
 
   useEffect(() => {
-    if (error) {
-      showToast(error, "error");
+    // Check URL for order modification mode
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get("modify");
+
+    if (orderId) {
+      setIsModifying(true);
+      // Fetch the order to be modified
+      loadOrderForModification(orderId);
     }
-  }, [error, showToast]);
+  }, []);
 
-  const handleCheckout = () => {
-    navigate("/checkout");
+  const loadOrderForModification = async (orderId) => {
+    try {
+      const response = await api.get(`/api/order/${orderId}`);
+      setModifiedOrder(response.data);
+
+      // Pre-fill the cart with order items
+      clearCart();
+      response.data.items.forEach((item) => {
+        updateCartItem({
+          ...item,
+          quantity: item.quantity,
+        });
+      });
+
+      // Set special instructions if any
+      if (response.data.specialInstructions) {
+        setSpecialInstructions(response.data.specialInstructions);
+      }
+
+      // Set delivery address
+      if (response.data.deliveryAddress) {
+        setDeliveryAddress(response.data.deliveryAddress);
+      }
+
+      showToast("Order loaded for modification", "info");
+    } catch (error) {
+      console.error("Error loading order for modification:", error);
+      showToast("Could not load order for modification", "error");
+    }
   };
 
-  const handleUpdateQuantity = (itemId, quantity) => {
-    updateQuantity(itemId, quantity);
+  const handleQuantityChange = (item, newQuantity) => {
+    if (newQuantity >= 1) {
+      updateCartItem({
+        ...item,
+        quantity: newQuantity,
+      });
+    }
   };
 
-  const handleRemoveItem = (itemId) => {
-    removeFromCart(itemId);
-    showToast("Item removed from cart", "success");
+  const handleRemoveItem = (item) => {
+    removeFromCart(item);
   };
-
-  const handleClearCart = () => {
-    clearCart();
-    showToast("Cart cleared", "success");
-  };
-
-  if (loading) {
-    return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Box
-          className="loading-container"
-          sx={{ py: 8, display: "flex", justifyContent: "center" }}
-        >
-          <CircularProgress />
-        </Box>
-      </Container>
-    );
-  }
-
-  if (error) {
-    return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Paper elevation={2} sx={{ p: 4, borderRadius: 2, bgcolor: "#fff5f5" }}>
-          <Typography color="error" variant="h6" align="center" gutterBottom>
-            Error Loading Cart
-          </Typography>
-          <Typography align="center" color="text.secondary">
-            {error}
-          </Typography>
-        </Paper>
-      </Container>
-    );
-  }
-
-  if (!cartItems || cartItems.length === 0) {
-    return (
-      <Container maxWidth="md" sx={{ py: 6 }}>
-        <Paper elevation={1} sx={{ p: 4, borderRadius: 2 }}>
-          <Typography
-            variant="h4"
-            align="center"
-            gutterBottom
-            sx={{ fontWeight: 600, mb: 2 }}
-          >
-            Your Cart
-          </Typography>
-
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              bgcolor: "#f9f9f9",
-              py: 6,
-              px: 4,
-              borderRadius: 2,
-              mt: 3,
-            }}
-          >
-            <ShoppingBag sx={{ fontSize: 60, color: "#9e9e9e", mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              Your cart is empty
-            </Typography>
-            <Typography
-              color="text.secondary"
-              align="center"
-              sx={{ mb: 4, maxWidth: 400 }}
-            >
-              Looks like you haven't added any items to your cart yet.
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              size="large"
-              onClick={() => navigate("/restaurants")}
-              sx={{ py: 1.5, px: 4 }}
-            >
-              Browse Restaurants
-            </Button>
-          </Box>
-        </Paper>
-      </Container>
-    );
-  }
 
   const calculateTotal = () => {
-    return cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return cart
+      .reduce((total, item) => total + item.price * item.quantity, 0)
+      .toFixed(2);
+  };
+
+  const handleAddressChange = (e) => {
+    const { name, value } = e.target;
+    setDeliveryAddress((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleProceedToCheckout = () => {
+    if (cart.length === 0) {
+      showToast("Your cart is empty", "warning");
+      return;
+    }
+
+    if (isModifying && modifiedOrder) {
+      handleModifyOrder();
+    } else {
+      navigate("/checkout", {
+        state: {
+          cartItems: cart,
+          total: calculateTotal(),
+          specialInstructions,
+          deliveryAddress,
+        },
+      });
+    }
+  };
+
+  const handleModifyOrder = async () => {
+    try {
+      const orderData = {
+        items: cart.map((item) => ({
+          itemId: item.itemId || item._id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        specialInstructions,
+        deliveryAddress,
+      };
+
+      const response = await api.patch(
+        `/api/order/${modifiedOrder._id}/modify`,
+        orderData
+      );
+
+      if (response.data.success) {
+        showToast("Order modified successfully", "success");
+        // Clear the cart and redirect to order tracking
+        clearCart();
+        navigate(`/order-tracking/${modifiedOrder._id}`);
+      }
+    } catch (error) {
+      console.error("Error modifying order:", error);
+      showToast(
+        "Failed to modify order. " +
+          (error.response?.data?.message || "Please try again."),
+        "error"
+      );
+    }
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: 6 }}>
-      <Paper elevation={1} sx={{ borderRadius: 2, overflow: "hidden" }}>
-        <Box sx={{ p: 4 }}>
-          <Typography
-            variant="h4"
-            align="center"
-            gutterBottom
-            sx={{ fontWeight: 600, mb: 4 }}
-          >
-            Your Cart
-          </Typography>
+    <div className="cart-container">
+      <h1>{isModifying ? "Modify Order" : "Your Cart"}</h1>
 
-          <Box className="cart-items">
-            {cartItems.map((item) => (
-              <Paper
-                key={item.itemId}
-                elevation={0}
-                sx={{
-                  p: 3,
-                  mb: 2,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  border: "1px solid #eaeaea",
-                  borderRadius: 2,
-                  transition: "box-shadow 0.2s",
-                  "&:hover": {
-                    boxShadow: "0 4px 8px rgba(0,0,0,0.05)",
-                  },
-                }}
-              >
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 500, mb: 0.5 }}>
-                    {item.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    ${item.price.toFixed(2)} each
-                  </Typography>
-                </Box>
-
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      border: "1px solid #e0e0e0",
-                      borderRadius: 1,
-                      mr: 2,
-                    }}
+      {cart.length === 0 ? (
+        <div className="empty-cart">
+          <p>Your cart is empty</p>
+          <button onClick={() => navigate("/restaurants")}>
+            Browse Restaurants
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="cart-items">
+            {cart.map((item, index) => (
+              <div className="cart-item" key={index}>
+                <div className="item-details">
+                  <h3>{item.name}</h3>
+                  <p className="item-price">${item.price.toFixed(2)}</p>
+                </div>
+                <div className="item-quantity">
+                  <button
+                    onClick={() =>
+                      handleQuantityChange(item, item.quantity - 1)
+                    }
+                    disabled={item.quantity <= 1}
                   >
-                    <IconButton
-                      size="small"
-                      onClick={() =>
-                        handleUpdateQuantity(item.itemId, item.quantity - 1)
-                      }
-                      disabled={item.quantity <= 1}
-                    >
-                      <Remove fontSize="small" />
-                    </IconButton>
-                    <Typography
-                      sx={{ px: 2, minWidth: "1.5rem", textAlign: "center" }}
-                    >
-                      {item.quantity}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={() =>
-                        handleUpdateQuantity(item.itemId, item.quantity + 1)
-                      }
-                    >
-                      <Add fontSize="small" />
-                    </IconButton>
-                  </Box>
-
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-end",
-                      minWidth: "100px",
-                    }}
+                    -
+                  </button>
+                  <span>{item.quantity}</span>
+                  <button
+                    onClick={() =>
+                      handleQuantityChange(item, item.quantity + 1)
+                    }
                   >
-                    <Typography
-                      variant="body1"
-                      sx={{ fontWeight: 600, color: "primary.main" }}
-                    >
-                      ${(item.price * item.quantity).toFixed(2)}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleRemoveItem(item.itemId)}
-                      sx={{ mt: 0.5 }}
-                    >
-                      <Delete fontSize="small" />
-                    </IconButton>
-                  </Box>
-                </Box>
-              </Paper>
+                    +
+                  </button>
+                </div>
+                <div className="item-total">
+                  <p>${(item.price * item.quantity).toFixed(2)}</p>
+                  <button
+                    className="remove-btn"
+                    onClick={() => handleRemoveItem(item)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
             ))}
-          </Box>
+          </div>
 
-          <Divider sx={{ my: 4 }} />
+          <div className="special-instructions">
+            <h3>Special Instructions</h3>
+            <textarea
+              rows="3"
+              placeholder="Add any special instructions or requests..."
+              value={specialInstructions}
+              onChange={(e) => setSpecialInstructions(e.target.value)}
+            ></textarea>
+          </div>
 
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 2,
-            }}
-          >
-            <Button
-              variant="outlined"
-              color="inherit"
-              onClick={handleClearCart}
-              sx={{
-                px: 3,
-                color: "#666",
-                borderColor: "#e0e0e0",
-                "&:hover": { borderColor: "#bdbdbd", bgcolor: "#f5f5f5" },
-              }}
-            >
-              Clear Cart
-            </Button>
+          <div className="delivery-address">
+            <h3>Delivery Address</h3>
+            <div className="address-form">
+              <div className="form-group">
+                <label>Street</label>
+                <input
+                  type="text"
+                  name="street"
+                  value={deliveryAddress.street}
+                  onChange={handleAddressChange}
+                  required
+                />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>City</label>
+                  <input
+                    type="text"
+                    name="city"
+                    value={deliveryAddress.city}
+                    onChange={handleAddressChange}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>State</label>
+                  <input
+                    type="text"
+                    name="state"
+                    value={deliveryAddress.state}
+                    onChange={handleAddressChange}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Zip Code</label>
+                  <input
+                    type="text"
+                    name="zipCode"
+                    value={deliveryAddress.zipCode}
+                    onChange={handleAddressChange}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
 
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-end",
-              }}
-            >
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                Total: ${calculateTotal().toFixed(2)}
-              </Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                size="large"
-                onClick={handleCheckout}
-                sx={{ px: 4, py: 1.5 }}
+          <div className="cart-summary">
+            <div className="cart-total">
+              <h3>Order Total</h3>
+              <p>${calculateTotal()}</p>
+            </div>
+
+            <div className="cart-actions">
+              <button onClick={() => navigate(-1)}>Continue Shopping</button>
+              <button
+                className="checkout-btn"
+                onClick={handleProceedToCheckout}
+                disabled={cart.length === 0}
               >
-                Proceed to Checkout
-              </Button>
-            </Box>
-          </Box>
-        </Box>
-      </Paper>
-    </Container>
+                {isModifying ? "Save Changes" : "Proceed to Checkout"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
-}
+};
 
 export default Cart;

@@ -71,21 +71,33 @@ const OrderHistory = () => {
     const fetchOrders = async () => {
       try {
         const userId = localStorage.getItem("userId") || "test-user";
-        const response = await handleApiCall(
-          fetch(`${serviceUrls.order}/api/orders/user/${userId}`, {
+
+        // Direct fetch with better error handling
+        const response = await fetch(
+          `${serviceUrls.order}/api/order/user/${userId}`,
+          {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,
             },
-          })
+          }
         );
 
-        if (response && response.data) {
-          setOrders(response.data);
-          setFilteredOrders(response.data);
+        if (!response.ok) {
+          throw new Error(`Server responded with status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("Orders fetched:", data); // Debug log to see data structure
+
+        if (Array.isArray(data)) {
+          setOrders(data);
+          setFilteredOrders(data);
         } else {
+          console.warn("Unexpected data format:", data);
           setOrders([]);
           setFilteredOrders([]);
         }
+
         setLoading(false);
       } catch (error) {
         console.error("Failed to load order history:", error);
@@ -96,7 +108,7 @@ const OrderHistory = () => {
     };
 
     fetchOrders();
-  }, [handleApiCall, serviceUrls.order, showToast]);
+  }, [serviceUrls.order, showToast]);
 
   // Fetch restaurant names
   useEffect(() => {
@@ -248,11 +260,26 @@ const OrderHistory = () => {
   };
 
   const handleOrderClick = (orderId) => {
+    // Find the order to log its data for debugging
+    const order = orders.find((o) => o._id === orderId);
+    if (order) {
+      console.log("Order details:", order);
+      // Check if items array exists
+      if (
+        !order.items ||
+        !Array.isArray(order.items) ||
+        order.items.length === 0
+      ) {
+        console.warn("Order items missing or empty:", order);
+      }
+    }
+
+    // Toggle expansion
     setExpandedOrder(expandedOrder === orderId ? null : orderId);
   };
 
   const handleTrackOrder = (orderId) => {
-    navigate(`/order/${orderId}`);
+    navigate(`/order-tracking/${orderId}`);
   };
 
   // Get summary statistics
@@ -875,4 +902,4 @@ const OrderHistory = () => {
   );
 };
 
-export default OrderHistory;
+export default OrderHistory;

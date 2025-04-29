@@ -61,6 +61,10 @@ const orderSchema = new mongoose.Schema({
     state: String,
     zipCode: String,
   },
+  specialInstructions: {
+    type: String,
+    default: "",
+  },
   paymentId: {
     type: String,
   },

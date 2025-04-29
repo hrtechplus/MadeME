@@ -2,7 +2,9 @@ import React, { createContext, useState, useContext, useEffect } from "react";
 import { useApi } from "./ApiContext";
 import axios from "axios";
 
+// Create context and export it
 const CartContext = createContext();
+export { CartContext };
 
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState([]);

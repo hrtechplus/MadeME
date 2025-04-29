@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState } from "react";
 
+// Create and export the ApiContext
 const ApiContext = createContext();
+export { ApiContext };
 
 export function ApiProvider({ children }) {
   // Default service URLs - can be overridden by environment variables

@@ -392,3 +392,209 @@ exports.updateOrder = async (req, res) => {
     });
   }
 };
+
+// Modify order before confirmation
+exports.modifyOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { items, deliveryAddress, specialInstructions } = req.body;
+
+    const order = await Order.findById(id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Check if order can be modified
+    if (order.status !== "VERIFYING" && order.status !== "PENDING") {
+      return res.status(400).json({
+        message: "Order cannot be modified",
+        details:
+          "Orders can only be modified while in verifying or pending status",
+      });
+    }
+
+    // Check authorization - only the user who placed the order can modify it
+    const isUserOrder = req.userData && req.userData.userId === order.userId;
+
+    if (!isUserOrder && req.userData.role !== "admin") {
+      return res.status(403).json({
+        message: "Not authorized to modify this order",
+      });
+    }
+
+    // Update items if provided
+    if (items && items.length > 0) {
+      order.items = items;
+
+      // Recalculate total
+      order.total = items.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+    }
+
+    // Update delivery address if provided
+    if (deliveryAddress) {
+      order.deliveryAddress = {
+        ...order.deliveryAddress,
+        ...deliveryAddress,
+      };
+    }
+
+    // Update special instructions if provided
+    if (specialInstructions !== undefined) {
+      order.specialInstructions = specialInstructions;
+    }
+
+    // Update timestamp
+    order.updatedAt = Date.now();
+
+    await order.save();
+
+    res.json({
+      success: true,
+      message: "Order modified successfully",
+      order,
+    });
+  } catch (error) {
+    console.error("Error modifying order:", error);
+    res.status(500).json({
+      message: "Error modifying order",
+      error: error.message,
+    });
+  }
+};
+
+// Track order status with detailed information
+exports.trackOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const order = await Order.findById(id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Create a tracking response with more user-friendly information
+    const statusMap = {
+      VERIFYING: "Order is being verified",
+      PENDING: "Order is pending confirmation from the restaurant",
+      CONFIRMED: "Order has been confirmed by the restaurant",
+      REJECTED: "Order has been rejected by the restaurant",
+      PREPARING: "Your food is being prepared",
+      OUT_FOR_DELIVERY: "Your order is on the way",
+      DELIVERED: "Your order has been delivered",
+      CANCELLED: "Order has been cancelled",
+    };
+
+    // Calculate estimated delivery time based on order status
+    let estimatedDeliveryTime = null;
+    const currentTime = new Date();
+
+    if (["CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY"].includes(order.status)) {
+      // Basic logic for estimated delivery time
+      const createdAtTime = new Date(order.createdAt);
+
+      // Default preparation time: 20 minutes
+      const preparationTime = 20 * 60 * 1000; // in milliseconds
+
+      // Default delivery time: 30 minutes
+      const deliveryTime = 30 * 60 * 1000; // in milliseconds
+
+      if (order.status === "CONFIRMED") {
+        // If confirmed, add preparation time + delivery time
+        estimatedDeliveryTime = new Date(
+          createdAtTime.getTime() + preparationTime + deliveryTime
+        );
+      } else if (order.status === "PREPARING") {
+        // If preparing, add reduced preparation time + delivery time
+        const remainingPrepTime = preparationTime * 0.6; // 60% of preparation time remaining
+        estimatedDeliveryTime = new Date(
+          currentTime.getTime() + remainingPrepTime + deliveryTime
+        );
+      } else if (order.status === "OUT_FOR_DELIVERY") {
+        // If out for delivery, add just delivery time
+        estimatedDeliveryTime = new Date(
+          currentTime.getTime() + deliveryTime * 0.7
+        ); // 70% of delivery time
+      }
+    }
+
+    // Create tracking history
+    const trackingHistory = [
+      { status: "Order Placed", timestamp: order.createdAt },
+    ];
+
+    // Add tracking milestones based on the current status
+    const statusOrder = [
+      "VERIFYING",
+      "PENDING",
+      "CONFIRMED",
+      "PREPARING",
+      "OUT_FOR_DELIVERY",
+      "DELIVERED",
+    ];
+
+    const currentStatusIndex = statusOrder.indexOf(order.status);
+
+    // If order is not rejected or cancelled, add history events
+    if (
+      currentStatusIndex >= 0 &&
+      !["CANCELLED", "REJECTED"].includes(order.status)
+    ) {
+      // Add completed statuses to history
+      for (let i = 0; i <= currentStatusIndex; i++) {
+        const status = statusOrder[i];
+        // Skip the first status as we already added "Order Placed"
+        if (i > 0) {
+          trackingHistory.push({
+            status: statusMap[status],
+            // Estimate timestamps (in real system, these would be stored)
+            timestamp: new Date(
+              new Date(order.createdAt).getTime() + i * 10 * 60 * 1000
+            ), // Add 10 min per status
+          });
+        }
+      }
+    } else if (order.status === "REJECTED") {
+      trackingHistory.push({
+        status: "Order Rejected",
+        timestamp: order.updatedAt,
+        reason: order.rejectionReason,
+      });
+    } else if (order.status === "CANCELLED") {
+      trackingHistory.push({
+        status: "Order Cancelled",
+        timestamp: order.updatedAt,
+        reason: order.rejectionReason, // We're using the same field for cancellation reasons
+      });
+    }
+
+    const trackingResponse = {
+      orderId: order._id,
+      status: order.status,
+      statusDescription: statusMap[order.status],
+      estimatedDeliveryTime: estimatedDeliveryTime,
+      orderPlacedAt: order.createdAt,
+      lastUpdated: order.updatedAt,
+      restaurantResponse: order.restaurantResponse,
+      trackingHistory: trackingHistory,
+      canBeModified: ["VERIFYING", "PENDING"].includes(order.status),
+      canBeCancelled: ["VERIFYING", "PENDING", "PREPARING"].includes(
+        order.status
+      ),
+      items: order.items,
+      total: order.total,
+      deliveryAddress: order.deliveryAddress,
+    };
+
+    res.json(trackingResponse);
+  } catch (error) {
+    console.error("Error tracking order:", error);
+    res.status(500).json({
+      message: "Error tracking order",
+      error: error.message,
+    });
+  }
+};

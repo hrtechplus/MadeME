@@ -307,6 +307,14 @@ function AppContent() {
             }
           />
           <Route
+            path="/order-tracking/:id"
+            element={
+              <ProtectedRoute>
+                <OrderTracking />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/dashboard"
             element={
               <AdminRoute>

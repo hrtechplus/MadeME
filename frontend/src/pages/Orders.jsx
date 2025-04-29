@@ -118,7 +118,7 @@ function Orders() {
                 <TableRow
                   key={order._id}
                   hover
-                  onClick={() => navigate(`/order/${order._id}`)}
+                  onClick={() => navigate(`/order-tracking/${order._id}`)}
                   sx={{ cursor: "pointer" }}
                 >
                   <TableCell>{order._id.slice(-6)}</TableCell>

@@ -1,323 +1,282 @@
-import { useState, useEffect } from "react";
-import {
-  Container,
-  Typography,
-  Paper,
-  Box,
-  Stepper,
-  Step,
-  StepLabel,
-  Grid,
-  List,
-  ListItem,
-  ListItemText,
-  Divider,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  TextField,
-  Alert,
-  Chip,
-} from "@mui/material";
-import { useParams, useNavigate } from "react-router-dom";
-import { useApi } from "../context/ApiContext";
-import { useToast } from "../context/ToastContext";
-import { Cancel, Warning } from "@mui/icons-material";
+import React, { useState, useEffect, useContext } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { ApiContext } from "../context/ApiContext";
+import { ToastContext } from "../context/ToastContext";
+import "../styles/OrderTracking.css"; // Import your CSS styles
+import { orderApi } from "../api";
 
-const orderSteps = [
-  "Order Placed",
-  "Payment Confirmed",
-  "Preparing",
-  "Out for Delivery",
-  "Delivered",
-];
-
-const statusToStep = {
-  VERIFYING: 0,
-  PENDING: 0,
-  CONFIRMED: 1,
-  PREPARING: 2,
-  OUT_FOR_DELIVERY: 3,
-  DELIVERED: 4,
-  REJECTED: 0,
-  CANCELLED: -1, // Set to -1 to indicate this order is no longer in progress
-};
-
-function OrderTracking() {
-  const [order, setOrder] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [cancellationReason, setCancellationReason] = useState("");
-  const [cancelLoading, setCancelLoading] = useState(false);
+const OrderTracking = () => {
   const { id } = useParams();
-  const { serviceUrls, handleApiCall } = useApi();
-  const { showToast } = useToast();
+  const { handleApiCall, serviceUrls } = useContext(ApiContext);
+  const { showToast } = useContext(ToastContext);
   const navigate = useNavigate();
+  const [trackingData, setTrackingData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshInterval, setRefreshInterval] = useState(30); // seconds
+  const [timeUntilRefresh, setTimeUntilRefresh] = useState(refreshInterval);
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
-  useEffect(() => {
-    fetchOrder();
-    const interval = setInterval(fetchOrder, 10000); // Poll every 10 seconds
-    return () => clearInterval(interval);
-  }, [id]);
-
-  const fetchOrder = async () => {
+  // Function to fetch tracking data
+  const fetchTrackingData = async () => {
     try {
-      const response = await handleApiCall(
-        fetch(`${serviceUrls.order}/api/order/${id}`)
-      );
-      setOrder(response.data);
-    } catch (error) {
-      console.error("Error fetching order:", error);
-    } finally {
+      const response = await orderApi.trackOrder(id);
+      setTrackingData(response.data);
       setLoading(false);
+      setError(null);
+
+      // Reset the refresh countdown
+      setTimeUntilRefresh(refreshInterval);
+
+      // If order is in a final state, stop auto-refresh
+      if (
+        ["DELIVERED", "CANCELLED", "REJECTED"].includes(response.data.status)
+      ) {
+        setAutoRefresh(false);
+      }
+    } catch (err) {
+      setError("Could not load tracking information. Please try again.");
+      setLoading(false);
+      console.error("Error fetching tracking data:", err);
     }
   };
 
+  // Initial data fetch
+  useEffect(() => {
+    fetchTrackingData();
+  }, [id]);
+
+  // Auto-refresh countdown effect
+  useEffect(() => {
+    if (!autoRefresh || !trackingData) return;
+
+    const countdownInterval = setInterval(() => {
+      setTimeUntilRefresh((prev) => {
+        if (prev <= 1) {
+          fetchTrackingData(); // Refresh data when countdown reaches 0
+          return refreshInterval;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(countdownInterval);
+  }, [autoRefresh, refreshInterval, trackingData]);
+
+  // Function to handle order cancellation
   const handleCancelOrder = async () => {
-    setCancelLoading(true);
+    if (!window.confirm("Are you sure you want to cancel this order?")) {
+      return;
+    }
+
     try {
-      const response = await handleApiCall(
-        fetch(`${serviceUrls.order}/api/order/${id}/cancel`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({
-            cancellationReason: cancellationReason,
-          }),
-        })
-      );
+      const response = await orderApi.cancelOrder(id, "Cancelled by customer");
 
       if (response.data.success) {
         showToast("Order cancelled successfully", "success");
-        setCancelDialogOpen(false);
-        fetchOrder(); // Refresh order data
-      } else {
-        showToast(response.data.message || "Failed to cancel order", "error");
+        fetchTrackingData(); // Refresh data to show cancelled status
       }
     } catch (error) {
       console.error("Error cancelling order:", error);
-      showToast("Something went wrong while cancelling the order", "error");
-    } finally {
-      setCancelLoading(false);
+      showToast(
+        "Failed to cancel order. " +
+          (error.response?.data?.message || "Please try again."),
+        "error"
+      );
     }
   };
 
-  const handleOpenCancelDialog = () => {
-    setCancelDialogOpen(true);
-  };
-
-  const handleCloseCancelDialog = () => {
-    setCancelDialogOpen(false);
-  };
-
-  const getStatusChip = (status) => {
-    let color = "default";
-    let icon = null;
-
-    switch (status) {
-      case "VERIFYING":
-        color = "warning";
-        break;
-      case "PENDING":
-        color = "info";
-        break;
-      case "CONFIRMED":
-        color = "primary";
-        break;
-      case "PREPARING":
-        color = "secondary";
-        break;
-      case "OUT_FOR_DELIVERY":
-        color = "success";
-        break;
-      case "DELIVERED":
-        color = "success";
-        break;
-      case "REJECTED":
-        color = "error";
-        icon = <Warning />;
-        break;
-      case "CANCELLED":
-        color = "error";
-        icon = <Cancel />;
-        break;
-      default:
-        color = "default";
-    }
-
-    return (
-      <Chip
-        label={status.replace(/_/g, " ")}
-        color={color}
-        icon={icon}
-        sx={{
-          fontWeight: "bold",
-          mt: 1,
-          mb: 2,
-          fontSize: "0.9rem",
-        }}
-      />
-    );
+  // Function to handle order modification
+  const handleModifyOrder = () => {
+    navigate(`/cart?modify=${id}`);
   };
 
   if (loading) {
+    return <div className="loading">Loading order tracking information...</div>;
+  }
+
+  if (error) {
     return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Typography>Loading...</Typography>
-      </Container>
+      <div className="error-container">
+        <h2>Error</h2>
+        <p>{error}</p>
+        <button onClick={fetchTrackingData}>Try Again</button>
+      </div>
     );
   }
 
-  if (!order) {
+  if (!trackingData) {
     return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Typography>Order not found</Typography>
-      </Container>
+      <div className="not-found">
+        <h2>Order Not Found</h2>
+        <p>We couldn't find this order. Please check the order ID.</p>
+        <Link to="/order-history">View Your Orders</Link>
+      </div>
     );
   }
+
+  // Helper function to format date
+  const formatDate = (dateString) => {
+    const options = {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    };
+    return new Date(dateString).toLocaleDateString("en-US", options);
+  };
+
+  // Calculate progress percentage based on status
+  const calculateProgress = () => {
+    const statusOrder = [
+      "VERIFYING",
+      "PENDING",
+      "CONFIRMED",
+      "PREPARING",
+      "OUT_FOR_DELIVERY",
+      "DELIVERED",
+    ];
+
+    // Handle special cases
+    if (trackingData.status === "CANCELLED") return 0;
+    if (trackingData.status === "REJECTED") return 0;
+
+    const index = statusOrder.indexOf(trackingData.status);
+    if (index === -1) return 0;
+
+    return Math.round((index / (statusOrder.length - 1)) * 100);
+  };
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 3,
-        }}
-      >
-        <Typography variant="h4">Order #{id.slice(-6)}</Typography>
-        {getStatusChip(order.status)}
-      </Box>
+    <div className="order-tracking-container">
+      <div className="tracking-header">
+        <h1>Order Tracking</h1>
+        <div className="order-id">
+          <p>Order #{trackingData.orderId}</p>
+          <p className="placed-date">
+            Placed on {formatDate(trackingData.orderPlacedAt)}
+          </p>
+        </div>
+      </div>
 
-      {(order.status === "CANCELLED" || order.status === "REJECTED") && (
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          {order.status === "CANCELLED"
-            ? "This order has been cancelled."
-            : "This order has been rejected."}
-          {order.rejectionReason && ` Reason: ${order.rejectionReason}`}
-        </Alert>
-      )}
-
-      {order.status === "VERIFYING" || order.status === "PREPARING" ? (
-        <Box sx={{ mb: 3 }}>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            {order.status === "VERIFYING"
-              ? "Your order is being verified. You can cancel it at this stage if needed."
-              : "Your order is being prepared. You can still cancel it at this stage if needed."}
-          </Alert>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleOpenCancelDialog}
-            startIcon={<Cancel />}
+      <div className="status-card">
+        <div className="current-status">
+          <h2>Current Status: </h2>
+          <span
+            className={`status status-${trackingData.status.toLowerCase()}`}
           >
-            Cancel Order
-          </Button>
-        </Box>
-      ) : null}
+            {trackingData.statusDescription}
+          </span>
+        </div>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <Paper elevation={3} sx={{ p: 3 }}>
-            <Stepper
-              activeStep={statusToStep[order.status]}
-              sx={{ mb: 4 }}
-              alternativeLabel
-            >
-              {orderSteps.map((label) => (
-                <Step key={label}>
-                  <StepLabel>{label}</StepLabel>
-                </Step>
-              ))}
-            </Stepper>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={8}>
-          <Paper elevation={3} sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Order Details
-            </Typography>
-            <List>
-              {order.items.map((item) => (
-                <div key={item.itemId}>
-                  <ListItem>
-                    <ListItemText
-                      primary={item.name}
-                      secondary={`Quantity: ${item.quantity}`}
-                    />
-                    <Typography>
-                      ${(item.price * item.quantity).toFixed(2)}
-                    </Typography>
-                  </ListItem>
-                  <Divider />
+        {trackingData.estimatedDeliveryTime && (
+          <div className="estimated-time">
+            <i className="fa fa-clock-o"></i>
+            <span>
+              Estimated Delivery:{" "}
+              {formatDate(trackingData.estimatedDeliveryTime)}
+            </span>
+          </div>
+        )}
+
+        <div className="progress-section">
+          <div className="progress-bar">
+            <div
+              className="progress-fill"
+              style={{ width: `${calculateProgress()}%` }}
+            ></div>
+          </div>
+          <div className="progress-steps">
+            {trackingData.trackingHistory.map((step, index) => (
+              <div key={index} className="step-item">
+                <div className="step-point"></div>
+                <div className="step-details">
+                  <p className="step-title">{step.status}</p>
+                  <p className="step-time">{formatDate(step.timestamp)}</p>
+                  {step.reason && <p className="step-reason">{step.reason}</p>}
                 </div>
-              ))}
-            </List>
-            <Box sx={{ mt: 2, p: 2, bgcolor: "background.default" }}>
-              <Typography variant="subtitle1">
-                Total: ${order.total.toFixed(2)}
-              </Typography>
-            </Box>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper elevation={3} sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Delivery Address
-            </Typography>
-            <Typography>
-              {order.deliveryAddress.street}
-              <br />
-              {order.deliveryAddress.city}, {order.deliveryAddress.state}
-              <br />
-              {order.deliveryAddress.zipCode}
-            </Typography>
-          </Paper>
-        </Grid>
-      </Grid>
+              </div>
+            ))}
+          </div>
+        </div>
 
-      <Dialog open={cancelDialogOpen} onClose={handleCloseCancelDialog}>
-        <DialogTitle>Cancel Order</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to cancel this order? This action cannot be
-            undone.
-          </DialogContentText>
-          <TextField
-            autoFocus
-            margin="dense"
-            id="reason"
-            label="Reason for cancellation (optional)"
-            type="text"
-            fullWidth
-            variant="outlined"
-            value={cancellationReason}
-            onChange={(e) => setCancellationReason(e.target.value)}
-            sx={{ mt: 2 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseCancelDialog} disabled={cancelLoading}>
-            Go Back
-          </Button>
-          <Button
-            onClick={handleCancelOrder}
-            color="error"
-            variant="contained"
-            disabled={cancelLoading}
-          >
-            {cancelLoading ? "Cancelling..." : "Confirm Cancellation"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+        <div className="action-buttons">
+          {trackingData.canBeModified && (
+            <button className="modify-btn" onClick={handleModifyOrder}>
+              Modify Order
+            </button>
+          )}
+
+          {trackingData.canBeCancelled && (
+            <button className="cancel-btn" onClick={handleCancelOrder}>
+              Cancel Order
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="order-details-card">
+        <h2>Order Details</h2>
+
+        <div className="order-items">
+          <h3>Items:</h3>
+          <div className="items-list">
+            {trackingData.items.map((item, index) => (
+              <div key={index} className="item-row">
+                <span className="item-quantity">{item.quantity}x</span>
+                <span className="item-name">{item.name}</span>
+                <span className="item-price">
+                  ${(item.price * item.quantity).toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="order-total">
+            <strong>Total:</strong>
+            <span>${parseFloat(trackingData.total).toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div className="delivery-info">
+          <h3>Delivery Address:</h3>
+          <p>
+            {trackingData.deliveryAddress.street}
+            <br />
+            {trackingData.deliveryAddress.city},{" "}
+            {trackingData.deliveryAddress.state}{" "}
+            {trackingData.deliveryAddress.zipCode}
+          </p>
+        </div>
+      </div>
+
+      <div className="refresh-controls">
+        <div className="auto-refresh">
+          <label>
+            <input
+              type="checkbox"
+              checked={autoRefresh}
+              onChange={() => setAutoRefresh(!autoRefresh)}
+            />
+            Auto-refresh
+          </label>
+          {autoRefresh && (
+            <span className="refresh-countdown">
+              (Refreshing in {timeUntilRefresh}s)
+            </span>
+          )}
+        </div>
+        <button className="refresh-btn" onClick={fetchTrackingData}>
+          Refresh Now
+        </button>
+      </div>
+
+      <div className="navigation-links">
+        <Link to="/order-history">Back to Order History</Link>
+        <Link to="/">Back to Home</Link>
+      </div>
+    </div>
   );
-}
+};
 
 export default OrderTracking;

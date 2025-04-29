@@ -73,23 +73,24 @@ export const cartApi = {
 
 // Order API functions
 export const orderApi = {
-  createOrder: (data) => orderClient.post("/orders", data),
-  getOrders: (userId) => orderClient.get(`/orders/user/${userId}`),
-  getOrder: (orderId) => orderClient.get(`/orders/${orderId}`),
+  createOrder: (data) => orderClient.post("/order", data),
+  getOrders: (userId) => orderClient.get(`/order/user/${userId}`),
+  getOrder: (orderId) => orderClient.get(`/order/${orderId}`),
+  trackOrder: (orderId) => orderClient.get(`/order/${orderId}/track`),
   updateOrderStatus: (orderId, status) =>
-    orderClient.patch(`/orders/${orderId}/status`, { status }),
+    orderClient.patch(`/order/${orderId}/status`, { status }),
   getRestaurantOrders: (restaurantId) =>
-    orderClient.get(`/orders/restaurant/${restaurantId}`),
+    orderClient.get(`/order/restaurant/${restaurantId}`),
   assignDriver: (orderId, driverId) =>
-    orderClient.post(`/orders/${orderId}/assign-driver`, { driverId }),
+    orderClient.post(`/order/${orderId}/assign-driver`, { driverId }),
   // Admin-specific endpoints
   getAllOrders: (filters = {}) =>
-    orderClient.get("/admin/all", { params: filters }),
+    orderClient.get("/order/admin/all", { params: filters }),
   updateOrder: (orderId, orderData) =>
-    orderClient.put(`/${orderId}`, orderData),
-  deleteOrder: (orderId) => orderClient.delete(`/${orderId}`),
+    orderClient.put(`/order/${orderId}`, orderData),
+  deleteOrder: (orderId) => orderClient.delete(`/order/${orderId}`),
   cancelOrder: (orderId, cancellationReason) =>
-    orderClient.post(`/${orderId}/cancel`, { cancellationReason }),
+    orderClient.post(`/order/${orderId}/cancel`, { cancellationReason }),
 };
 
 // Payment API functions

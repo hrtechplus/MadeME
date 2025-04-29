@@ -14,6 +14,12 @@ router.get(
   orderController.getAllOrders
 );
 
+// Get orders by user
+router.get("/user/:userId", orderController.getUserOrders);
+
+// Get orders by restaurant
+router.get("/restaurant/:restaurantId", orderController.getRestaurantOrders);
+
 // Get order by ID
 router.get("/:id", orderController.getOrderById);
 
@@ -32,6 +38,21 @@ router.post(
     body("deliveryAddress.zipCode").notEmpty(),
   ],
   orderController.createOrder
+);
+
+// Modify order before confirmation
+router.patch(
+  "/:id/modify",
+  verifyToken,
+  [
+    body("items").optional().isArray(),
+    body("deliveryAddress").optional().isObject(),
+    body("deliveryAddress.street").optional().notEmpty(),
+    body("deliveryAddress.city").optional().notEmpty(),
+    body("deliveryAddress.state").optional().notEmpty(),
+    body("deliveryAddress.zipCode").optional().notEmpty(),
+  ],
+  orderController.modifyOrder
 );
 
 // Update order (admin only)
@@ -55,6 +76,9 @@ router.patch(
   orderController.updateOrderStatus
 );
 
+// Track order status
+router.get("/:id/track", orderController.trackOrder);
+
 // Cancel order
 router.post(
   "/:id/cancel",
@@ -75,11 +99,5 @@ router.post(
   ],
   orderController.handleRestaurantResponse
 );
-
-// Get orders by user
-router.get("/user/:userId", orderController.getUserOrders);
-
-// Get orders by restaurant
-router.get("/restaurant/:restaurantId", orderController.getRestaurantOrders);
 
 module.exports = router;
