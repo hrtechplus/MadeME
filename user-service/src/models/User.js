@@ -51,6 +51,11 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    status: {
+      type: String,
+      enum: ["PENDING", "ACTIVE", "INACTIVE", "SUSPENDED"],
+      default: "PENDING",
+    },
   },
   {
     timestamps: true,

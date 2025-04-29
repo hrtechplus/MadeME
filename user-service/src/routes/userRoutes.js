@@ -79,6 +79,9 @@ router.post(
   userController.changePassword
 );
 
+// Get users by status (accessible to normal users for pending status)
+router.get("/status/:status", auth, userController.getUsersByStatus);
+
 // Admin routes
 // Get all users (admin only)
 router.get("/", auth, adminAuth, userController.getAllUsers);

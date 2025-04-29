@@ -124,6 +124,7 @@ function Payment() {
             orderId,
             amount: parseFloat(amount),
             userId: localStorage.getItem("userId") || "guest-user",
+            platform: "web",
           }),
         }
       );
@@ -139,17 +140,30 @@ function Payment() {
       const data = await response.json();
       console.log("PayPal order creation response:", data);
 
-      if (!data || !data.orderId || !data.paymentId) {
-        throw new Error("Failed to create PayPal order");
+      // Check for required fields based on the actual response structure
+      if (!data) {
+        throw new Error("No data received from PayPal order creation");
+      }
+
+      // The response has approvalUrl and paypalOrderId (as seen in the screenshot)
+      const paypalOrderId = data.paypalOrderId || data.orderId;
+      const approvalUrl = data.approvalUrl;
+      const paymentId = data.paymentId;
+
+      if (!approvalUrl) {
+        throw new Error("No approval URL received from PayPal");
       }
 
       // Save order ID and payment ID to session storage for the return flow
       sessionStorage.setItem("currentOrderId", orderId);
-      sessionStorage.setItem("paypalOrderId", data.orderId);
-      sessionStorage.setItem("paymentId", data.paymentId);
+      sessionStorage.setItem("paypalOrderId", paypalOrderId);
+      sessionStorage.setItem("paymentId", paymentId);
 
-      // Redirect to PayPal for payment approval
-      window.location.href = `https://www.paypal.com/checkoutnow?token=${data.orderId}`;
+      // Store the approval URL in session storage for reopening if needed
+      sessionStorage.setItem("paypalCheckoutUrl", approvalUrl);
+
+      // Attempt to open PayPal in a new tab with the approval URL
+      openPayPalInNewTab(approvalUrl);
     } catch (err) {
       console.error("PayPal payment error:", err);
       setError(
@@ -158,6 +172,125 @@ function Payment() {
       showToast("Error setting up PayPal payment", "error");
       setProcessing(false);
     }
+  };
+
+  // Separate function to handle opening PayPal in a new tab
+  const openPayPalInNewTab = (url) => {
+    // Try opening in a new tab with specific features for better compatibility
+    const paypalWindow = window.open(
+      url,
+      "_blank",
+      "noopener,noreferrer,resizable=yes,scrollbars=yes,status=yes,width=1000,height=700"
+    );
+
+    // If popup was blocked, fall back to other methods
+    if (
+      !paypalWindow ||
+      paypalWindow.closed ||
+      typeof paypalWindow.closed === "undefined"
+    ) {
+      console.warn("Popup may have been blocked");
+      showToast("Popup blocked! Trying alternative methods...", "warning");
+
+      // Try to create a button that will trigger the popup when clicked
+      // This works better because it's user-initiated
+      const popupButton = document.createElement("a");
+      popupButton.href = url;
+      popupButton.target = "_blank";
+      popupButton.rel = "noopener noreferrer";
+      popupButton.style.display = "none";
+      document.body.appendChild(popupButton);
+
+      // Simulate a click
+      popupButton.click();
+
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(popupButton);
+
+        // Check if the window was actually opened
+        if (!window.open("", "_blank") || window.open("", "_blank").closed) {
+          // If still blocked, offer a direct link
+          setError(
+            "We couldn't open PayPal automatically. Please click the button below to open PayPal checkout in a new tab."
+          );
+          setProcessing(false);
+        } else {
+          // Window seems to have opened successfully
+          setProcessing(false);
+          showToast("PayPal checkout opened in a new tab", "info");
+          startPaymentStatusPolling(sessionStorage.getItem("paymentId"));
+        }
+      }, 1000);
+    } else {
+      // Window opened successfully
+      setProcessing(false);
+      showToast("PayPal checkout opened in a new tab", "info");
+      startPaymentStatusPolling(sessionStorage.getItem("paymentId"));
+    }
+  };
+
+  // Add a new function to poll for payment status updates
+  const startPaymentStatusPolling = (paymentId) => {
+    if (!paymentId) {
+      console.error("No payment ID provided for polling");
+      return;
+    }
+
+    console.log("Starting payment status polling for ID:", paymentId);
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(
+          `${serviceUrls.payment}/api/payment/verify/${paymentId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          console.warn("Payment status polling error:", response.statusText);
+          return;
+        }
+
+        const data = await response.json();
+        console.log("Payment status poll result:", data);
+
+        // Extract payment status, accounting for different response formats
+        const paymentStatus =
+          data.status ||
+          (data.payment && data.payment.status) ||
+          (data.data && data.data.status);
+
+        // If payment is completed, redirect to success page
+        if (paymentStatus === "COMPLETED") {
+          clearInterval(pollInterval);
+          showToast("Payment completed successfully!", "success");
+          navigate("/payment/success", {
+            state: {
+              orderId,
+              paymentId,
+            },
+          });
+        }
+        // If payment is failed, show error
+        else if (paymentStatus === "FAILED") {
+          clearInterval(pollInterval);
+          setError("Payment failed. Please try again.");
+          showToast("Payment failed", "error");
+        }
+        // Otherwise continue polling
+      } catch (err) {
+        console.error("Error checking payment status:", err);
+      }
+    }, 3000); // Check every 3 seconds
+
+    // Clear interval when component unmounts
+    return () => clearInterval(pollInterval);
   };
 
   const paymentMethods = [
@@ -173,7 +306,49 @@ function Payment() {
     },
   ];
 
-  if (error) {
+  if (error && sessionStorage.getItem("paypalCheckoutUrl")) {
+    return (
+      <Container maxWidth="md" sx={{ py: 8 }}>
+        <Paper elevation={1} sx={{ p: 4, borderRadius: 2, bgcolor: "#fff5f5" }}>
+          <Typography color="error" variant="h6" align="center" gutterBottom>
+            Payment Error
+          </Typography>
+          <Typography align="center" color="text.secondary" gutterBottom>
+            {error}
+          </Typography>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              mt: 3,
+              gap: 2,
+              flexDirection: { xs: "column", sm: "row" },
+            }}
+          >
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() =>
+                window.open(
+                  sessionStorage.getItem("paypalCheckoutUrl"),
+                  "_blank"
+                )
+              }
+            >
+              Open PayPal Checkout
+            </Button>
+            <Button
+              variant="outlined"
+              color="inherit"
+              onClick={() => navigate("/cart")}
+            >
+              Return to Cart
+            </Button>
+          </Box>
+        </Paper>
+      </Container>
+    );
+  } else if (error) {
     return (
       <Container maxWidth="md" sx={{ py: 8 }}>
         <Paper elevation={1} sx={{ p: 4, borderRadius: 2, bgcolor: "#fff5f5" }}>
@@ -330,8 +505,8 @@ function Payment() {
                 sx={{ mb: 3, borderRadius: 2 }}
                 icon={<CheckCircleOutline />}
               >
-                You will be redirected to PayPal to complete your payment
-                securely.
+                PayPal checkout will open in a new tab. Please complete your
+                payment there and return to this page.
               </Alert>
             </Box>
           </Fade>

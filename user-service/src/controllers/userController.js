@@ -269,9 +269,39 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
+// Get users by status (accessible to normal users for pending status)
+exports.getUsersByStatus = async (req, res) => {
+  try {
+    const { status } = req.params;
+    const isAdmin = req.role === "admin";
+
+    // Normal users can only access pending status
+    if (!isAdmin && status !== "PENDING") {
+      return res.status(403).json({
+        message: "Access denied: You can only view users with pending status",
+      });
+    }
+
+    const users = await User.find({ status });
+    res.json({ users });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching users by status",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 // Admin: Get all users
 exports.getAllUsers = async (req, res) => {
   try {
+    // Only admin can access all users
+    if (req.role !== "admin") {
+      return res.status(403).json({
+        message: "Access denied: Admin privileges required",
+      });
+    }
+
     const users = await User.find({});
     res.json({ users });
   } catch (error) {

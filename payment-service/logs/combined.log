@@ -1932,3 +1932,83 @@
 {"level":"info","message":"::1 - - [29/Apr/2025:14:38:42 +0000] \"POST /api/payment/process HTTP/1.1\" 200 155 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T14:38:42.395Z"}
 {"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T14:52:08.858Z"}
 {"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-29T14:52:10.650Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T14:53:21.497Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-29T14:53:23.192Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:14:56:10 +0000] \"GET /api/payment/admin/all? HTTP/1.1\" 200 10682 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T14:56:10.404Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:14:56:12 +0000] \"GET /api/payment/admin/all? HTTP/1.1\" 304 - \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T14:56:12.353Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:14:56:27 +0000] \"GET /api/payment/admin/all? HTTP/1.1\" 304 - \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T14:56:27.893Z"}
+{"level":"info","message":"Processing COD payment for order 6810e8b690babb7f676984b7 with amount $29.98","service":"payment-service","timestamp":"2025-04-29T14:57:00.046Z"}
+{"level":"info","message":"Created payment record with ID: 6810e8bcbf2402fe0918c275","service":"payment-service","timestamp":"2025-04-29T14:57:00.223Z"}
+{"level":"error","message":"Error updating order status: Request failed with status code 403","service":"payment-service","timestamp":"2025-04-29T14:57:00.246Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:14:57:00 +0000] \"POST /api/payment/process HTTP/1.1\" 200 155 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T14:57:00.248Z"}
+{"level":"info","message":"Processing COD payment for order 6810e90c90babb7f6769855b with amount $27.98","service":"payment-service","timestamp":"2025-04-29T14:58:25.135Z"}
+{"level":"info","message":"Created payment record with ID: 6810e911bf2402fe0918c277","service":"payment-service","timestamp":"2025-04-29T14:58:25.275Z"}
+{"level":"error","message":"Error updating order status: Request failed with status code 403","service":"payment-service","timestamp":"2025-04-29T14:58:25.280Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:14:58:25 +0000] \"POST /api/payment/process HTTP/1.1\" 200 155 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T14:58:25.281Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:14:59:11 +0000] \"GET /api/payment/admin/all? HTTP/1.1\" 200 11476 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T14:59:11.205Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:14:59:18 +0000] \"GET /api/payment/admin/all? HTTP/1.1\" 304 - \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T14:59:18.915Z"}
+{"level":"info","message":"Processing COD payment for order 6810e9b490babb7f67698680 with amount $27.98","service":"payment-service","timestamp":"2025-04-29T15:01:13.977Z"}
+{"level":"info","message":"Created payment record with ID: 6810e9b9bf2402fe0918c27d","service":"payment-service","timestamp":"2025-04-29T15:01:14.127Z"}
+{"level":"error","message":"Error updating order status: Request failed with status code 403","service":"payment-service","timestamp":"2025-04-29T15:01:14.134Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:15:01:14 +0000] \"POST /api/payment/process HTTP/1.1\" 200 155 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T15:01:14.135Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:15:02:02 +0000] \"GET /api/payment/admin/all? HTTP/1.1\" 200 11568 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T15:02:02.078Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T15:05:05.432Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-29T15:05:07.243Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T15:05:41.356Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-29T15:05:42.910Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T15:06:03.751Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-29T15:06:05.637Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T15:06:25.119Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-29T15:06:26.760Z"}
+{"level":"info","message":"Creating PayPal order for order: 6810eb2590babb7f67698782, amount: $14.99","service":"payment-service","timestamp":"2025-04-29T15:07:26.249Z"}
+{"level":"info","message":"Created payment record with ID: 6810eb2e293969d1a690e2bc","service":"payment-service","timestamp":"2025-04-29T15:07:26.415Z"}
+{"level":"info","message":"Initializing PayPal client with mode: sandbox","service":"payment-service","timestamp":"2025-04-29T15:07:26.415Z"}
+{"level":"info","message":"Using PayPal SANDBOX environment","service":"payment-service","timestamp":"2025-04-29T15:07:26.416Z"}
+{"level":"info","message":"PayPal return URL: http://localhost:5173/payment/success?orderId=6810eb2590babb7f67698782&paymentId=6810eb2e293969d1a690e2bc","service":"payment-service","timestamp":"2025-04-29T15:07:26.416Z"}
+{"level":"info","message":"PayPal cancel URL: http://localhost:5173/payment/cancel","service":"payment-service","timestamp":"2025-04-29T15:07:26.417Z"}
+{"level":"info","message":"Sending request to PayPal to create order","service":"payment-service","timestamp":"2025-04-29T15:07:26.417Z"}
+{"level":"info","message":"PayPal order created successfully with ID: 6933884793126990H","service":"payment-service","timestamp":"2025-04-29T15:07:28.556Z"}
+{"level":"info","message":"Updated payment record with PayPal order ID: 6933884793126990H","service":"payment-service","timestamp":"2025-04-29T15:07:28.705Z"}
+{"level":"info","message":"PayPal approval URL: https://www.sandbox.paypal.com/checkoutnow?token=6933884793126990H","service":"payment-service","timestamp":"2025-04-29T15:07:28.706Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:15:07:28 +0000] \"POST /api/payment/paypal/create-order HTTP/1.1\" 200 174 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T15:07:28.709Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T15:08:30.951Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-29T15:08:32.631Z"}
+{"level":"info","message":"Creating PayPal order for order: 6810eca290babb7f67698786, amount: $12.99","service":"payment-service","timestamp":"2025-04-29T15:13:39.896Z"}
+{"level":"info","message":"Created payment record with ID: 6810eca32cedca93fd870385","service":"payment-service","timestamp":"2025-04-29T15:13:40.064Z"}
+{"level":"info","message":"Initializing PayPal client with mode: sandbox","service":"payment-service","timestamp":"2025-04-29T15:13:40.065Z"}
+{"level":"info","message":"Using PayPal SANDBOX environment","service":"payment-service","timestamp":"2025-04-29T15:13:40.066Z"}
+{"level":"info","message":"PayPal return URL: http://localhost:5173/payment/success?orderId=6810eca290babb7f67698786&paymentId=6810eca32cedca93fd870385","service":"payment-service","timestamp":"2025-04-29T15:13:40.067Z"}
+{"level":"info","message":"PayPal cancel URL: http://localhost:5173/payment/cancel","service":"payment-service","timestamp":"2025-04-29T15:13:40.068Z"}
+{"level":"info","message":"Sending request to PayPal to create order","service":"payment-service","timestamp":"2025-04-29T15:13:40.068Z"}
+{"level":"info","message":"PayPal order created successfully with ID: 1BU96735YD1070331","service":"payment-service","timestamp":"2025-04-29T15:13:42.641Z"}
+{"level":"info","message":"Updated payment record with PayPal order ID: 1BU96735YD1070331","service":"payment-service","timestamp":"2025-04-29T15:13:42.781Z"}
+{"level":"info","message":"PayPal approval URL: https://www.sandbox.paypal.com/checkoutnow?token=1BU96735YD1070331","service":"payment-service","timestamp":"2025-04-29T15:13:42.781Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:15:13:42 +0000] \"POST /api/payment/paypal/create-order HTTP/1.1\" 200 174 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T15:13:42.784Z"}
+{"level":"info","message":"Creating PayPal order for order: 6810ed7790babb7f6769878a, amount: $14.99","service":"payment-service","timestamp":"2025-04-29T15:17:13.581Z"}
+{"level":"info","message":"Created payment record with ID: 6810ed792cedca93fd870388","service":"payment-service","timestamp":"2025-04-29T15:17:13.721Z"}
+{"level":"info","message":"Initializing PayPal client with mode: sandbox","service":"payment-service","timestamp":"2025-04-29T15:17:13.722Z"}
+{"level":"info","message":"Using PayPal SANDBOX environment","service":"payment-service","timestamp":"2025-04-29T15:17:13.722Z"}
+{"level":"info","message":"PayPal return URL: http://localhost:5173/payment/success?orderId=6810ed7790babb7f6769878a&paymentId=6810ed792cedca93fd870388","service":"payment-service","timestamp":"2025-04-29T15:17:13.723Z"}
+{"level":"info","message":"PayPal cancel URL: http://localhost:5173/payment/cancel","service":"payment-service","timestamp":"2025-04-29T15:17:13.723Z"}
+{"level":"info","message":"Sending request to PayPal to create order","service":"payment-service","timestamp":"2025-04-29T15:17:13.723Z"}
+{"level":"info","message":"PayPal order created successfully with ID: 5PW32908CE5579041","service":"payment-service","timestamp":"2025-04-29T15:17:15.781Z"}
+{"level":"info","message":"Updated payment record with PayPal order ID: 5PW32908CE5579041","service":"payment-service","timestamp":"2025-04-29T15:17:15.922Z"}
+{"level":"info","message":"PayPal approval URL: https://www.sandbox.paypal.com/checkoutnow?token=5PW32908CE5579041","service":"payment-service","timestamp":"2025-04-29T15:17:15.923Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:15:17:15 +0000] \"POST /api/payment/paypal/create-order HTTP/1.1\" 200 174 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T15:17:15.924Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-04-29T15:20:51.016Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-04-29T15:20:52.810Z"}
+{"level":"info","message":"Creating PayPal order for order: 6810eebc90babb7f676987ac, amount: $29.98","service":"payment-service","timestamp":"2025-04-29T15:22:39.062Z"}
+{"level":"info","message":"Created payment record with ID: 6810eebf5f5bc574400a1b30","service":"payment-service","timestamp":"2025-04-29T15:22:39.235Z"}
+{"level":"info","message":"Initializing PayPal client with mode: sandbox","service":"payment-service","timestamp":"2025-04-29T15:22:39.236Z"}
+{"level":"info","message":"Using PayPal SANDBOX environment","service":"payment-service","timestamp":"2025-04-29T15:22:39.237Z"}
+{"level":"info","message":"PayPal return URL: http://localhost:5173/payment/success?orderId=6810eebc90babb7f676987ac&paymentId=6810eebf5f5bc574400a1b30","service":"payment-service","timestamp":"2025-04-29T15:22:39.238Z"}
+{"level":"info","message":"PayPal cancel URL: http://localhost:5173/payment/cancel","service":"payment-service","timestamp":"2025-04-29T15:22:39.239Z"}
+{"level":"info","message":"Sending request to PayPal to create order","service":"payment-service","timestamp":"2025-04-29T15:22:39.239Z"}
+{"level":"info","message":"PayPal order created successfully with ID: 9FC257921B1995917","service":"payment-service","timestamp":"2025-04-29T15:22:41.605Z"}
+{"level":"info","message":"Updated payment record with PayPal order ID: 9FC257921B1995917","service":"payment-service","timestamp":"2025-04-29T15:22:42.010Z"}
+{"level":"info","message":"PayPal approval URL: https://www.sandbox.paypal.com/checkoutnow?token=9FC257921B1995917","service":"payment-service","timestamp":"2025-04-29T15:22:42.010Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:15:22:42 +0000] \"POST /api/payment/paypal/create-order HTTP/1.1\" 200 174 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T15:22:42.013Z"}
+{"level":"info","message":"Processing COD payment for order 6810eef390babb7f676987b0 with amount $27.98","service":"payment-service","timestamp":"2025-04-29T15:23:33.546Z"}
+{"level":"info","message":"Created payment record with ID: 6810eef55f5bc574400a1b33","service":"payment-service","timestamp":"2025-04-29T15:23:33.692Z"}
+{"level":"error","message":"Error updating order status: Request failed with status code 403","service":"payment-service","timestamp":"2025-04-29T15:23:33.708Z"}
+{"level":"info","message":"::1 - - [29/Apr/2025:15:23:33 +0000] \"POST /api/payment/process HTTP/1.1\" 200 155 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-04-29T15:23:33.711Z"}
