@@ -6,6 +6,7 @@ const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const orderRoutes = require("./routes/orderRoutes");
+const rabbitMQ = require("./utils/rabbitmq");
 const fs = require("fs");
 const path = require("path");
 
@@ -49,6 +50,7 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
     mongodbStatus:
       mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    rabbitmqStatus: rabbitMQ.connection ? "connected" : "disconnected",
   });
 });
 
@@ -85,6 +87,9 @@ mongoose
   })
   .then(() => {
     console.log("Connected to MongoDB successfully");
+
+    // After MongoDB is connected, initialize RabbitMQ
+    initializeRabbitMQ();
   })
   .catch((err) => {
     console.error("MongoDB connection error details:", err);
@@ -100,6 +105,58 @@ mongoose
     }
   });
 
+// Initialize RabbitMQ connection and message consumers
+async function initializeRabbitMQ() {
+  try {
+    await rabbitMQ.connect();
+
+    // Set up message consumers for different queues
+    await setupMessageConsumers();
+
+    console.log("RabbitMQ connection and consumers initialized successfully");
+  } catch (error) {
+    console.error("Failed to initialize RabbitMQ:", error.message);
+  }
+}
+
+// Set up message consumers for different queues
+async function setupMessageConsumers() {
+  const orderController = require('./controllers/orderController');
+  
+  // Consume messages from payment-service
+  await rabbitMQ.consumeMessages('payment-status-updates', async (message) => {
+    console.log('Received payment status update:', message);
+    const { orderId, status, paymentId } = message;
+    
+    // Update the order with the payment status
+    try {
+      const updatedOrder = await orderController.updateOrderPaymentStatus(orderId, status, paymentId);
+      if (updatedOrder) {
+        console.log(`Order ${orderId} payment status updated to ${status}`);
+      } else {
+        console.error(`Failed to update payment status for order ${orderId}`);
+      }
+    } catch (error) {
+      console.error(`Error processing payment update for order ${orderId}:`, error.message);
+    }
+  });
+  
+  // Consume messages about restaurant availability
+  await rabbitMQ.consumeMessages('restaurant-status-updates', async (message) => {
+    console.log('Received restaurant status update:', message);
+    // Process restaurant status update
+    const { restaurantId, status, reason } = message;
+    
+    // Here you would implement logic to handle restaurant availability changes
+    // For example, if a restaurant becomes unavailable, you might need to notify
+    // users with pending orders from that restaurant
+    
+    console.log(`Restaurant ${restaurantId} status changed to ${status}`);
+  });
+  
+  // Add more message consumers as needed
+}
+
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`Order service running on port ${PORT}`);
@@ -109,5 +166,32 @@ app.listen(PORT, () => {
       mongoose.connection.readyState === 1 ? "connected" : "disconnected"
     }`
   );
+  console.log(
+    `RabbitMQ status: ${rabbitMQ.connection ? "connected" : "disconnected"}`
+  );
   console.log(`API base URL: http://localhost:${PORT}/api/orders`);
+});
+
+// Graceful shutdown
+process.on("SIGINT", async () => {
+  console.log("Shutting down order-service gracefully...");
+
+  try {
+    // Close RabbitMQ connection
+    if (rabbitMQ) {
+      await rabbitMQ.close();
+    }
+
+    // Close MongoDB connection
+    if (mongoose.connection) {
+      await mongoose.connection.close();
+      console.log("MongoDB connection closed");
+    }
+
+    console.log("Shutdown completed successfully");
+    process.exit(0);
+  } catch (error) {
+    console.error("Error during shutdown:", error.message);
+    process.exit(1);
+  }
 });
