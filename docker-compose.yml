@@ -13,13 +13,13 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     ports:
-      - "5672:5672"   # AMQP port
+      - "5672:5672" # AMQP port
       - "15672:15672" # Management UI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     environment:
       - RABBITMQ_DEFAULT_USER=mademe
-      - RABBITMQ_DEFAULT_PASS=mademe_password  # Change in production
+      - RABBITMQ_DEFAULT_PASS=mademe_password # Change in production
     networks:
       - mademe_network
 

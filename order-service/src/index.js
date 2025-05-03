@@ -121,39 +121,49 @@ async function initializeRabbitMQ() {
 
 // Set up message consumers for different queues
 async function setupMessageConsumers() {
-  const orderController = require('./controllers/orderController');
-  
+  const orderController = require("./controllers/orderController");
+
   // Consume messages from payment-service
-  await rabbitMQ.consumeMessages('payment-status-updates', async (message) => {
-    console.log('Received payment status update:', message);
+  await rabbitMQ.consumeMessages("payment-status-updates", async (message) => {
+    console.log("Received payment status update:", message);
     const { orderId, status, paymentId } = message;
-    
+
     // Update the order with the payment status
     try {
-      const updatedOrder = await orderController.updateOrderPaymentStatus(orderId, status, paymentId);
+      const updatedOrder = await orderController.updateOrderPaymentStatus(
+        orderId,
+        status,
+        paymentId
+      );
       if (updatedOrder) {
         console.log(`Order ${orderId} payment status updated to ${status}`);
       } else {
         console.error(`Failed to update payment status for order ${orderId}`);
       }
     } catch (error) {
-      console.error(`Error processing payment update for order ${orderId}:`, error.message);
+      console.error(
+        `Error processing payment update for order ${orderId}:`,
+        error.message
+      );
     }
   });
-  
+
   // Consume messages about restaurant availability
-  await rabbitMQ.consumeMessages('restaurant-status-updates', async (message) => {
-    console.log('Received restaurant status update:', message);
-    // Process restaurant status update
-    const { restaurantId, status, reason } = message;
-    
-    // Here you would implement logic to handle restaurant availability changes
-    // For example, if a restaurant becomes unavailable, you might need to notify
-    // users with pending orders from that restaurant
-    
-    console.log(`Restaurant ${restaurantId} status changed to ${status}`);
-  });
-  
+  await rabbitMQ.consumeMessages(
+    "restaurant-status-updates",
+    async (message) => {
+      console.log("Received restaurant status update:", message);
+      // Process restaurant status update
+      const { restaurantId, status, reason } = message;
+
+      // Here you would implement logic to handle restaurant availability changes
+      // For example, if a restaurant becomes unavailable, you might need to notify
+      // users with pending orders from that restaurant
+
+      console.log(`Restaurant ${restaurantId} status changed to ${status}`);
+    }
+  );
+
   // Add more message consumers as needed
 }
 

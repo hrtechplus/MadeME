@@ -1,7 +1,8 @@
 import axios from "axios";
 
 // Get the API Gateway URL from environment variables or use default
-const API_GATEWAY_URL = import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:80";
+const API_GATEWAY_URL =
+  import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:80";
 
 // Create a single axios instance for all services through the API Gateway
 const apiClient = axios.create({
@@ -139,7 +140,8 @@ export const userApi = {
   // Admin-specific endpoints
   getAllUsers: () => apiClient.get("/api/users/admin/all"),
   getUserById: (userId) => apiClient.get(`/api/users/${userId}`),
-  updateUser: (userId, userData) => apiClient.put(`/api/users/${userId}`, userData),
+  updateUser: (userId, userData) =>
+    apiClient.put(`/api/users/${userId}`, userData),
   deleteUser: (userId) => apiClient.delete(`/api/users/${userId}`),
 };
 
