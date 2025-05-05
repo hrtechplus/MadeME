@@ -36,6 +36,19 @@ router.post(
   paymentController.processPayment
 );
 
+// Process credit/debit card payment via PayPal gateway
+router.post(
+  "/card/process",
+  [
+    body("orderId").notEmpty(),
+    body("amount").isNumeric(),
+    body("userId").optional(),
+    body("email").optional().isEmail(),
+    body("cardDetails").notEmpty(),
+  ],
+  paymentController.processCardPayment
+);
+
 // PayPal Payment Routes
 // Create PayPal order - enhanced for web and mobile support
 router.post(

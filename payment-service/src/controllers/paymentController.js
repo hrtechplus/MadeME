@@ -1003,3 +1003,170 @@ exports.checkPayPalTransaction = async (req, res) => {
     });
   }
 };
+
+// Process card payment through PayPal
+exports.processCardPayment = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      logger.error("Validation errors:", errors.array());
+      return res.status(400).json({ errors: errors.array(), success: false });
+    }
+
+    const { orderId, amount, userId, cardDetails, email } = req.body;
+
+    logger.info(
+      `Processing card payment via PayPal for order: ${orderId}, amount: $${amount}`
+    );
+
+    // Create payment record in database
+    const payment = new Payment({
+      orderId,
+      userId: userId || "guest-user",
+      amount,
+      status: "PENDING",
+      paymentMethod: "CARD",
+      transactionId: `card_paypal_${Date.now()}`,
+      metadata: {
+        email,
+        createdAt: new Date().toISOString(),
+        paymentProcessor: "PAYPAL",
+        cardType: cardDetails.type || "UNKNOWN",
+      },
+    });
+
+    await payment.save();
+    logger.info(`Created card payment record with ID: ${payment._id}`);
+
+    // For development/testing, allow mock processing
+    if (
+      process.env.MOCK_CARD_PAYMENTS === "true" &&
+      process.env.NODE_ENV === "development"
+    ) {
+      logger.info(`Using mock card processing for order ${orderId}`);
+
+      // Simulate processing delay
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Update payment record for mock processing
+      payment.status = "COMPLETED";
+      payment.metadata = {
+        ...payment.metadata,
+        cardTransactionId: `mock_card_${Date.now()}`,
+        paypalStatus: "COMPLETED",
+        processedAt: new Date().toISOString(),
+        isMock: true,
+      };
+      await payment.save();
+
+      // Notify order service
+      try {
+        await axios.patch(
+          `${
+            process.env.ORDER_SERVICE_URL || "http://localhost:5001"
+          }/api/orders/${payment.orderId}/status`,
+          { status: "CONFIRMED" },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: req.headers.authorization,
+            },
+          }
+        );
+        logger.info(
+          `Order ${payment.orderId} status updated to CONFIRMED (mock card payment)`
+        );
+      } catch (orderError) {
+        logger.error(
+          `Error updating order status (mock card payment): ${orderError.message}`
+        );
+      }
+
+      return res.json({
+        success: true,
+        message: "Card payment successfully processed",
+        paymentId: payment._id,
+        orderId: payment.orderId,
+        status: "COMPLETED",
+      });
+    }
+
+    // In production, use PayPal's card processing API
+    // This would typically call their API to process the card payment
+    try {
+      // Call PayPal card processing API (simplified representation)
+      const cardPaymentResult = await paypalUtils.client.processCardPayment({
+        amount: {
+          currency_code: "USD",
+          value: amount.toString(),
+        },
+        card: cardDetails,
+        order_id: orderId,
+      });
+
+      // If successful, update payment record
+      payment.status = "COMPLETED";
+      payment.metadata = {
+        ...payment.metadata,
+        cardTransactionId: cardPaymentResult.id || `paypal_card_${Date.now()}`,
+        paypalStatus: "COMPLETED",
+        processedAt: new Date().toISOString(),
+      };
+      await payment.save();
+      logger.info(`Card payment completed for payment ID: ${payment._id}`);
+
+      // Update order status
+      try {
+        await axios.patch(
+          `${
+            process.env.ORDER_SERVICE_URL || "http://localhost:5001"
+          }/api/orders/${payment.orderId}/status`,
+          { status: "CONFIRMED" },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: req.headers.authorization,
+            },
+          }
+        );
+        logger.info(
+          `Order ${payment.orderId} status updated to CONFIRMED (card payment)`
+        );
+      } catch (orderError) {
+        logger.error(`Error updating order status: ${orderError.message}`);
+      }
+
+      return res.json({
+        success: true,
+        message: "Card payment successfully processed",
+        paymentId: payment._id,
+        orderId: payment.orderId,
+        status: "COMPLETED",
+      });
+    } catch (error) {
+      // If card processing fails, update payment status
+      payment.status = "FAILED";
+      payment.error = error.message;
+      payment.metadata = {
+        ...payment.metadata,
+        failedAt: new Date().toISOString(),
+        errorDetails: error.toString(),
+      };
+      await payment.save();
+      logger.error(`Card payment failed: ${error.message}`);
+
+      return res.status(400).json({
+        success: false,
+        message: "Card payment failed",
+        error: error.message,
+      });
+    }
+  } catch (error) {
+    logger.error(`Error in processCardPayment: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      message: "Error processing card payment",
+      error: error.message,
+    });
+  }
+};

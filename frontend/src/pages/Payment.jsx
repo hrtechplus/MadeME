@@ -17,11 +17,16 @@ import {
   CircularProgress,
   Alert,
   Fade,
+  TextField,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import {
   AccountBalanceWallet,
   LocalAtm,
   CheckCircleOutline,
+  CreditCard,
 } from "@mui/icons-material";
 import "../styles/Payment.css";
 
@@ -34,6 +39,13 @@ function Payment() {
   const [paymentMethod, setPaymentMethod] = useState("paypal");
   const [orderTotal, setOrderTotal] = useState(0);
   const [processing, setProcessing] = useState(false);
+  const [cardDetails, setCardDetails] = useState({
+    number: "",
+    expMonth: "",
+    expYear: "",
+    cvc: "",
+    type: "VISA",
+  });
 
   const orderId = location.state?.orderId;
   const amount = location.state?.amount;
@@ -58,6 +70,49 @@ function Payment() {
       if (paymentMethod === "paypal") {
         // Use our dedicated PayPal payment handler
         return handlePayPalPayment();
+      } else if (paymentMethod === "card") {
+        // Handle credit/debit card payment via PayPal gateway
+        response = await handleApiCall(
+          fetch(`${serviceUrls.payment}/api/payment/card/process`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify({
+              orderId,
+              amount,
+              userId: localStorage.getItem("userId"),
+              email: localStorage.getItem("email"),
+              cardDetails: {
+                ...cardDetails,
+                // Mask the card number for security in logs
+                number: cardDetails.number.replace(/\d(?=\d{4})/g, "*"),
+              },
+            }),
+          })
+        );
+
+        if (response.data.success) {
+          showToast("Payment processed successfully!", "success");
+          setTimeout(() => {
+            navigate("/orders", {
+              state: {
+                message: "Your payment was successful!",
+                orderId: response.data?.orderId || orderId,
+              },
+            });
+          }, 2000);
+        } else {
+          setError(
+            response.data.message ||
+              "Payment processing failed. Please try again."
+          );
+          showToast(
+            response.data.message || "Failed to process payment",
+            "error"
+          );
+        }
       } else if (paymentMethod === "cash") {
         response = await handleApiCall(
           fetch(`${serviceUrls.payment}/api/payment/process`, {
@@ -293,7 +348,20 @@ function Payment() {
     return () => clearInterval(pollInterval);
   };
 
+  const handleCardDetailsChange = (e) => {
+    const { name, value } = e.target;
+    setCardDetails((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
   const paymentMethods = [
+    {
+      id: "card",
+      name: "Credit/Debit Card",
+      icon: <CreditCard sx={{ fontSize: 36, color: "#6772e5" }} />,
+    },
     {
       id: "paypal",
       name: "PayPal",
@@ -492,6 +560,92 @@ function Payment() {
               </Grid>
             </RadioGroup>
           </FormControl>
+
+          <Fade in={paymentMethod === "card"}>
+            <Box
+              sx={{
+                mb: 4,
+                display: paymentMethod === "card" ? "block" : "none",
+              }}
+            >
+              <Alert
+                severity="info"
+                sx={{ mb: 3, borderRadius: 2 }}
+                icon={<CreditCard />}
+              >
+                Your card details are securely processed through PayPal. We
+                don't store your card information.
+              </Alert>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Card Number"
+                    variant="outlined"
+                    name="number"
+                    value={cardDetails.number}
+                    onChange={handleCardDetailsChange}
+                    placeholder="1234 5678 9012 3456"
+                    inputProps={{ maxLength: 19 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    label="Exp. Month"
+                    variant="outlined"
+                    name="expMonth"
+                    value={cardDetails.expMonth}
+                    onChange={handleCardDetailsChange}
+                    placeholder="MM"
+                    inputProps={{ maxLength: 2 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    label="Exp. Year"
+                    variant="outlined"
+                    name="expYear"
+                    value={cardDetails.expYear}
+                    onChange={handleCardDetailsChange}
+                    placeholder="YYYY"
+                    inputProps={{ maxLength: 4 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    label="CVC"
+                    variant="outlined"
+                    name="cvc"
+                    value={cardDetails.cvc}
+                    onChange={handleCardDetailsChange}
+                    placeholder="123"
+                    inputProps={{ maxLength: 4 }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControl fullWidth>
+                    <InputLabel id="card-type-label">Card Type</InputLabel>
+                    <Select
+                      labelId="card-type-label"
+                      name="type"
+                      value={cardDetails.type}
+                      onChange={handleCardDetailsChange}
+                      label="Card Type"
+                    >
+                      <MenuItem value="VISA">Visa</MenuItem>
+                      <MenuItem value="MASTERCARD">Mastercard</MenuItem>
+                      <MenuItem value="AMEX">American Express</MenuItem>
+                      <MenuItem value="DISCOVER">Discover</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Box>
+          </Fade>
 
           <Fade in={paymentMethod === "paypal"}>
             <Box

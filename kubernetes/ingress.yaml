@@ -1,0 +1,55 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mademe-ingress
+  namespace: mademe
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+  - host: mademe.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+      - path: /api/cart(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: cart-service
+            port:
+              number: 5002
+      - path: /api/orders(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: order-service
+            port:
+              number: 5001
+      - path: /api/payments(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: payment-service
+            port:
+              number: 5003
+      - path: /api/restaurants(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: restaurant-service
+            port:
+              number: 5005
+      - path: /api/users(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: user-service
+            port:
+              number: 5004
