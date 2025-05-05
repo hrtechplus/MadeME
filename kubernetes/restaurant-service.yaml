@@ -23,40 +23,40 @@ spec:
         app: restaurant-service
     spec:
       containers:
-      - name: restaurant-service
-        image: mademe/restaurant-service:latest
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 5005
-        env:
-        - name: PORT
-          value: "5005"
-        - name: MONGODB_URI
-          value: "mongodb://mongodb:27017/mademe-restaurants"
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: restaurant-service-secrets
-              key: jwt-secret
-        resources:
-          limits:
-            memory: "256Mi"
-            cpu: "300m"
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 5005
-          initialDelaySeconds: 10
-          periodSeconds: 5
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 5005
-          initialDelaySeconds: 15
-          periodSeconds: 10
+        - name: restaurant-service
+          image: mademe/restaurant-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5005
+          env:
+            - name: PORT
+              value: "5005"
+            - name: MONGODB_URI
+              value: "mongodb://mongodb:27017/mademe-restaurants"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: restaurant-service-secrets
+                  key: jwt-secret
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5005
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5005
+            initialDelaySeconds: 15
+            periodSeconds: 10
 ---
 apiVersion: v1
 kind: Service
@@ -67,6 +67,6 @@ spec:
   selector:
     app: restaurant-service
   ports:
-  - port: 5005
-    targetPort: 5005
+    - port: 5005
+      targetPort: 5005
   type: ClusterIP
