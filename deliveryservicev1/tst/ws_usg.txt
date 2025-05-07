@@ -1,0 +1,59 @@
+# Dictionary to store WebSocket connections for all clients (e.g., customers, restaurants)
+connected_clients = {}
+
+@router.websocket("/ws/customers/{customer_id}")
+async def customer_websocket_endpoint(websocket: WebSocket, customer_id: str):
+    await websocket.accept()
+    connected_clients[customer_id] = websocket
+
+    try:
+        while True:
+            await websocket.receive_text()  # Keep connection alive
+    except WebSocketDisconnect:
+        del connected_clients[customer_id]
+        await websocket.close()
+
+# Broadcast location to all connected customers
+async def broadcast_location_to_customers(driver_id: str, location: dict):
+    for client_id, websocket in connected_clients.items():
+        try:
+            await websocket.send_text(json.dumps({
+                "driver_id": driver_id,
+                "location": location
+            }))
+        except WebSocketDisconnect:
+            del connected_clients[client_id]
+            await websocket.close()
+
+# Modify websocket to broadcast location updates
+@router.websocket("/ws/drivers/{driver_id}")
+async def websocket_endpoint(websocket: WebSocket, driver_id: str):
+    await websocket.accept()
+    logger.info(f"Driver {driver_id} connected to WebSocket.")
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+            location_data = json.loads(data)
+
+            latitude = location_data.get('latitude')
+            longitude = location_data.get('longitude')
+
+            # Store the driver's location
+            connected_drivers[driver_id] = {
+                "latitude": latitude,
+                "longitude": longitude
+            }
+
+            logger.info(f"Driver {driver_id} updated location: {latitude}, {longitude}")
+
+            # Broadcast location to all connected customers (optional)
+            await broadcast_location_to_customers(driver_id, {"latitude": latitude, "longitude": longitude})
+
+            # Send confirmation back to the driver
+            await websocket.send_text(f"Location updated for driver {driver_id}")
+
+    except WebSocketDisconnect:
+        del connected_drivers[driver_id]
+        logger.info(f"Driver {driver_id} disconnected.")
+        await websocket.close()

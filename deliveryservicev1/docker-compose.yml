@@ -1,0 +1,7 @@
+services:
+  delivery-driver-service:
+    build: .
+    container_name: "delivery-driver-service"
+    ports:
+      - "8016:8016"
+    restart: unless-stopped
