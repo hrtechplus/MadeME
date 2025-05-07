@@ -37,6 +37,7 @@ router.post(
         "VERIFYING",
         "PENDING",
         "CONFIRMED",
+        "REJECTED",
         "PREPARING",
         "OUT_FOR_DELIVERY",
         "DELIVERED",
@@ -148,12 +149,29 @@ router.patch(
   orderController.updateOrderStatus
 );
 
+// Add route for location updates from delivery service
+router.post(
+  "/:id/location",
+  [
+    body("latitude").isNumeric().notEmpty(),
+    body("longitude").isNumeric().notEmpty(),
+    body("driverId").notEmpty(),
+  ],
+  orderController.updateDriverLocation
+);
+
 // Assign driver to order
 router.post(
   "/:id/assign-driver",
   verifyToken,
   verifyAdmin,
-  [body("driverId").notEmpty()],
+  [
+    body("driverId").notEmpty(),
+    body("driverName").notEmpty(),
+    body("driverPhone").notEmpty(),
+    body("estimatedDeliveryTime").optional().isISO8601(),
+    body("deliveryNotes").optional().isString(),
+  ],
   orderController.assignDriver
 );
 

@@ -1,4 +1,4 @@
-version: "3"
+version: "3.8"
 
 services:
   mongodb:
@@ -13,7 +13,22 @@ services:
   frontend:
     build: ./frontend
     ports:
+<<<<<<< HEAD
       - "5173:5173"
+=======
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - user-service
+      - restaurant-service
+      - cart-service
+      - order-service
+      - payment-service
+      - delivery-service
+      - notification-service
+>>>>>>> 97ed16a13919e16662deabe550d5d5d479679256
     environment:
       - VITE_CART_SERVICE_URL=http://localhost:5002
       - VITE_ORDER_SERVICE_URL=http://localhost:5001
@@ -24,6 +39,7 @@ services:
       - cart-service
       - order-service
       - payment-service
+<<<<<<< HEAD
       - user-service
       - restaurant-service
     networks:
@@ -41,10 +57,38 @@ services:
       - mongodb
     networks:
       - mademe_network
+=======
+      - delivery-service
+    environment:
+      - PORT=5000
+      - USER_SERVICE_URL=http://user-service:8001
+      - RESTAURANT_SERVICE_URL=http://restaurant-service:8002
+      - ORDER_SERVICE_URL=http://order-service:8004
+      - PAYMENT_SERVICE_URL=http://payment-service:8005
+      - DELIVERY_SERVICE_URL=http://delivery-service:8016
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8015
+      - JWT_SECRET=your_jwt_secret_key_here # Change in production
+      - NODE_ENV=development
+
+  # User Service
+  user-service:
+    build: ./user-service
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./user-service:/app
+      - /app/node_modules
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/user-service
+      - PORT=8001
+    depends_on:
+      - mongodb
+>>>>>>> 97ed16a13919e16662deabe550d5d5d479679256
 
   order-service:
     build: ./order-service
     ports:
+<<<<<<< HEAD
       - "5001:5001"
     environment:
       - PORT=5001
@@ -101,6 +145,91 @@ services:
 networks:
   mademe_network:
     driver: bridge
+=======
+      - "8004:8004"
+    volumes:
+      - ./order-service:/app
+      - /app/node_modules
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/order-service
+      - PORT=8004
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8015
+      - DELIVERY_SERVICE_URL=http://delivery-service:8016
+      - USER_SERVICE_URL=http://user-service:8001
+      - RESTAURANT_SERVICE_URL=http://restaurant-service:8002
+    depends_on:
+      - mongodb
+      - notification-service
+      - delivery-service
+
+  # Restaurant Service
+  restaurant-service:
+    build: ./restaurant-service
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./restaurant-service:/app
+      - /app/node_modules
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/restaurant-service
+      - PORT=8002
+    depends_on:
+      - mongodb
+
+  # Payment Service
+  payment-service:
+    build: ./payment-service
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./payment-service:/app
+      - /app/node_modules
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/payment-service
+      - PORT=8005
+    depends_on:
+      - mongodb
+
+  # Delivery Service
+  delivery-service:
+    build: ./delivery-service
+    ports:
+      - "8016:8016"
+    volumes:
+      - ./delivery-service:/app
+      - /app/node_modules
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/delivery-service
+      - PORT=8016
+      - ORDER_SERVICE_URL=http://order-service:8004
+      - SECRET_KEY=delivery_service_secret
+      - ALGORITHM=HS256
+    depends_on:
+      - mongodb
+
+  # Cart Service
+  cart-service:
+    build: ./cart-service
+    ports:
+      - "8003:8003"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/cart-service
+      - PORT=8003
+    depends_on:
+      - mongodb
+
+  # Notification Service
+  notification-service:
+    build: ./notification-service
+    ports:
+      - "8015:8015"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/notification-service
+      - PORT=8015
+      - ORDER_SERVICE_URL=http://order-service:8004
+    depends_on:
+      - mongodb
+>>>>>>> 97ed16a13919e16662deabe550d5d5d479679256
 
 volumes:
   mongodb_data:

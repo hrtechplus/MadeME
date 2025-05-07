@@ -82,6 +82,62 @@ exports.updateOrderStatus = async (req, res) => {
 
     await order.save();
 
+    // Notify tracking users about status change via notification service
+    try {
+      // Generate an appropriate message based on status
+      const statusMessages = {
+        CONFIRMED: "Your order has been confirmed and is being processed.",
+        PREPARING: "Your order is now being prepared.",
+        OUT_FOR_DELIVERY: "Your order is out for delivery.",
+        DELIVERED: "Your order has been delivered. Enjoy!",
+        CANCELLED: "Your order has been cancelled.",
+        REJECTED: "Your order has been rejected.",
+      };
+
+      const message =
+        statusMessages[status] ||
+        `Your order status has been updated to ${status}.`;
+
+      // Send update to notification service
+      await axios.post(
+        `${
+          process.env.NOTIFICATION_SERVICE_URL || "http://localhost:8015"
+        }/notification/ctrl/api/v1/order-update/${id}`,
+        {
+          status: status,
+          userId: order.userId,
+          message: message,
+          timestamp: new Date(),
+          driverInfo:
+            status === "OUT_FOR_DELIVERY"
+              ? {
+                  driverId: order.delivery?.driverId,
+                  driverName: order.delivery?.driverName,
+                  driverPhone: order.delivery?.driverPhone,
+                }
+              : null,
+          estimatedDeliveryTime: order.delivery?.estimatedDeliveryTime,
+        }
+      );
+
+      // Also create a direct notification for the user
+      await axios.post(
+        `${
+          process.env.NOTIFICATION_SERVICE_URL || "http://localhost:8015"
+        }/notification/ctrl/api/v1/create`,
+        {
+          userId: order.userId,
+          message: message,
+          type: "ORDER_STATUS",
+          orderId: id,
+          status: false,
+        }
+      );
+    } catch (notificationError) {
+      console.error("Failed to send status notification:", notificationError);
+      // Continue with the process even if notification fails
+    }
+
     res.json(order);
   } catch (error) {
     console.error("Error updating order status:", error);
@@ -169,22 +225,93 @@ exports.getDriverOrders = async (req, res) => {
 exports.assignDriver = async (req, res) => {
   try {
     const { id } = req.params;
-    const { driverId } = req.body;
+    const {
+      driverId,
+      driverName,
+      driverPhone,
+      estimatedDeliveryTime,
+      deliveryNotes,
+    } = req.body;
 
     const order = await Order.findById(id);
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    order.driverId = driverId;
+    // Update order with driver information and estimated delivery time
+    order.delivery = {
+      driverId,
+      driverName,
+      driverPhone,
+      assignedAt: new Date(),
+      estimatedDeliveryTime:
+        estimatedDeliveryTime || new Date(Date.now() + 30 * 60000), // Default 30 min if not specified
+      deliveryNotes: deliveryNotes || "",
+    };
+
     order.status = "OUT_FOR_DELIVERY";
+
+    // Track who made the change
+    order.lastModifiedBy = req.userData ? req.userData.userId : "system";
+
     await order.save();
+
+    // Notify the delivery service about the assignment
+    try {
+      await axios.post(
+        `${
+          process.env.DELIVERY_SERVICE_URL || "http://localhost:8016"
+        }/deliverydriver/api/v1/assignments`,
+        {
+          orderId: id,
+          driverId: driverId,
+          orderDetails: {
+            customerName: order.userId, // Ideally, fetch the actual name from user service
+            deliveryAddress: order.deliveryAddress,
+            restaurantId: order.restaurantId,
+            items: order.items.length,
+            specialInstructions: order.specialInstructions,
+          },
+        }
+      );
+    } catch (notificationError) {
+      console.error("Failed to notify delivery service:", notificationError);
+      // Continue with the process even if notification fails
+    }
+
+    // Send notification to the user
+    try {
+      await axios.post(
+        `${
+          process.env.NOTIFICATION_SERVICE_URL || "http://localhost:8015"
+        }/notification/ctrl/api/v1/create`,
+        {
+          userId: order.userId,
+          message: `Your order #${
+            order._id
+          } has been assigned to driver ${driverName}. Estimated delivery time: ${new Date(
+            order.delivery.estimatedDeliveryTime
+          ).toLocaleTimeString()}`,
+          type: "DRIVER_ASSIGNED",
+          orderId: order._id,
+          driverDetails: {
+            name: driverName,
+            phone: driverPhone,
+          },
+        }
+      );
+    } catch (notificationError) {
+      console.error("Failed to send notification:", notificationError);
+      // Continue with the process even if notification fails
+    }
 
     res.json(order);
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error assigning driver", error: error.message });
+    console.error("Error assigning driver:", error);
+    res.status(500).json({
+      message: "Error assigning driver",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
@@ -530,135 +657,104 @@ exports.modifyOrder = async (req, res) => {
   }
 };
 
-// Track order status with detailed information
+// Track order status
 exports.trackOrder = async (req, res) => {
   try {
     const { id } = req.params;
-    const order = await Order.findById(id);
 
+    const order = await Order.findById(id);
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    // Create a tracking response with more user-friendly information
-    const statusMap = {
-      VERIFYING: "Order is being verified",
-      PENDING: "Order is pending confirmation from the restaurant",
-      CONFIRMED: "Order has been confirmed by the restaurant",
-      REJECTED: "Order has been rejected by the restaurant",
-      PREPARING: "Your food is being prepared",
-      OUT_FOR_DELIVERY: "Your order is on the way",
-      DELIVERED: "Your order has been delivered",
-      CANCELLED: "Order has been cancelled",
-    };
-
-    // Calculate estimated delivery time based on order status
-    let estimatedDeliveryTime = null;
-    const currentTime = new Date();
-
-    if (["CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY"].includes(order.status)) {
-      // Basic logic for estimated delivery time
-      const createdAtTime = new Date(order.createdAt);
-
-      // Default preparation time: 20 minutes
-      const preparationTime = 20 * 60 * 1000; // in milliseconds
-
-      // Default delivery time: 30 minutes
-      const deliveryTime = 30 * 60 * 1000; // in milliseconds
-
-      if (order.status === "CONFIRMED") {
-        // If confirmed, add preparation time + delivery time
-        estimatedDeliveryTime = new Date(
-          createdAtTime.getTime() + preparationTime + deliveryTime
-        );
-      } else if (order.status === "PREPARING") {
-        // If preparing, add reduced preparation time + delivery time
-        const remainingPrepTime = preparationTime * 0.6; // 60% of preparation time remaining
-        estimatedDeliveryTime = new Date(
-          currentTime.getTime() + remainingPrepTime + deliveryTime
-        );
-      } else if (order.status === "OUT_FOR_DELIVERY") {
-        // If out for delivery, add just delivery time
-        estimatedDeliveryTime = new Date(
-          currentTime.getTime() + deliveryTime * 0.7
-        ); // 70% of delivery time
-      }
-    }
-
-    // Create tracking history
-    const trackingHistory = [
-      { status: "Order Placed", timestamp: order.createdAt },
-    ];
-
-    // Add tracking milestones based on the current status
-    const statusOrder = [
-      "VERIFYING",
-      "PENDING",
-      "CONFIRMED",
-      "PREPARING",
-      "OUT_FOR_DELIVERY",
-      "DELIVERED",
-    ];
-
-    const currentStatusIndex = statusOrder.indexOf(order.status);
-
-    // If order is not rejected or cancelled, add history events
-    if (
-      currentStatusIndex >= 0 &&
-      !["CANCELLED", "REJECTED"].includes(order.status)
-    ) {
-      // Add completed statuses to history
-      for (let i = 0; i <= currentStatusIndex; i++) {
-        const status = statusOrder[i];
-        // Skip the first status as we already added "Order Placed"
-        if (i > 0) {
-          trackingHistory.push({
-            status: statusMap[status],
-            // Estimate timestamps (in real system, these would be stored)
-            timestamp: new Date(
-              new Date(order.createdAt).getTime() + i * 10 * 60 * 1000
-            ), // Add 10 min per status
-          });
-        }
-      }
-    } else if (order.status === "REJECTED") {
-      trackingHistory.push({
-        status: "Order Rejected",
-        timestamp: order.updatedAt,
-        reason: order.rejectionReason,
-      });
-    } else if (order.status === "CANCELLED") {
-      trackingHistory.push({
-        status: "Order Cancelled",
-        timestamp: order.updatedAt,
-        reason: order.rejectionReason, // We're using the same field for cancellation reasons
-      });
-    }
-
-    const trackingResponse = {
+    // Prepare tracking response
+    const trackingInfo = {
       orderId: order._id,
       status: order.status,
-      statusDescription: statusMap[order.status],
-      estimatedDeliveryTime: estimatedDeliveryTime,
-      orderPlacedAt: order.createdAt,
-      lastUpdated: order.updatedAt,
-      restaurantResponse: order.restaurantResponse,
-      trackingHistory: trackingHistory,
-      canBeModified: ["VERIFYING", "PENDING"].includes(order.status),
-      canBeCancelled: ["VERIFYING", "PENDING", "PREPARING"].includes(
-        order.status
-      ),
-      items: order.items,
-      total: order.total,
+      statusHistory: order.statusHistory,
+      estimatedDeliveryTime: order.delivery?.estimatedDeliveryTime,
       deliveryAddress: order.deliveryAddress,
+      driver: null,
+      currentLocation: null,
+      restaurant: {
+        id: order.restaurantId,
+        // Additional restaurant details could be fetched from restaurant service
+      },
     };
 
-    res.json(trackingResponse);
+    // If the order is out for delivery or delivered, include driver information
+    if (
+      ["OUT_FOR_DELIVERY", "DELIVERED"].includes(order.status) &&
+      order.delivery?.driverId
+    ) {
+      trackingInfo.driver = {
+        id: order.delivery.driverId,
+        name: order.delivery.driverName,
+        phone: order.delivery.driverPhone,
+      };
+
+      // Include current location if available
+      if (order.delivery.currentLocation) {
+        trackingInfo.currentLocation = {
+          latitude: order.delivery.currentLocation.latitude,
+          longitude: order.delivery.currentLocation.longitude,
+          lastUpdated: order.delivery.currentLocation.timestamp,
+        };
+      }
+
+      // If we don't have real-time location or it's outdated (more than 5 minutes old)
+      if (
+        !trackingInfo.currentLocation ||
+        Date.now() -
+          new Date(trackingInfo.currentLocation.lastUpdated).getTime() >
+          5 * 60 * 1000
+      ) {
+        try {
+          // Try to fetch real-time location from delivery service
+          const deliveryResponse = await axios.get(
+            `${
+              process.env.DELIVERY_SERVICE_URL || "http://localhost:8016"
+            }/deliverydriver/api/v1/ws/drivers/cdrivers`
+          );
+
+          const drivers = deliveryResponse.data;
+          const driverData = drivers[order.delivery.driverId];
+
+          if (driverData && driverData.location) {
+            trackingInfo.currentLocation = {
+              latitude: driverData.location.latitude,
+              longitude: driverData.location.longitude,
+              lastUpdated: new Date(),
+            };
+
+            // Also update the order with this location for future reference
+            order.delivery.currentLocation = {
+              latitude: driverData.location.latitude,
+              longitude: driverData.location.longitude,
+              timestamp: new Date(),
+            };
+
+            // Add to location history
+            if (!order.delivery.locationHistory) {
+              order.delivery.locationHistory = [];
+            }
+
+            order.delivery.locationHistory.push(order.delivery.currentLocation);
+            await order.save();
+          }
+        } catch (error) {
+          console.error("Failed to fetch real-time location:", error);
+          // Continue with the available data even if real-time fetch fails
+        }
+      }
+    }
+
+    res.json(trackingInfo);
   } catch (error) {
     console.error("Error tracking order:", error);
     res.status(500).json({
       message: "Error tracking order",
-      error: error.message,
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -952,3 +1048,152 @@ exports.bulkDeleteOrders = async (req, res) => {
     });
   }
 };
+
+// Update driver location
+exports.updateDriverLocation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { driverId, latitude, longitude } = req.body;
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Verify this is the correct driver for this order
+    if (!order.delivery || order.delivery.driverId !== driverId) {
+      return res.status(403).json({
+        message: "Driver is not authorized for this order",
+      });
+    }
+
+    // Create a new location entry
+    const newLocation = {
+      latitude,
+      longitude,
+      timestamp: new Date(),
+    };
+
+    // Update current location
+    order.delivery.currentLocation = newLocation;
+
+    // Add to location history if it doesn't exist yet
+    if (!order.delivery.locationHistory) {
+      order.delivery.locationHistory = [];
+    }
+
+    order.delivery.locationHistory.push(newLocation);
+
+    await order.save();
+
+    // Send notification to customer about driver location update
+    try {
+      // Only send notifications occasionally (not for every update) to avoid spam
+      // For example, send a notification every 5 minutes or at significant distance changes
+      const shouldNotify = shouldSendLocationNotification(order);
+
+      if (shouldNotify) {
+        // Calculate estimated arrival time based on location
+        const estimatedMinutes = calculateEstimatedArrival(
+          latitude,
+          longitude,
+          order.deliveryAddress.coordinates
+        );
+
+        await axios.post(
+          `${
+            process.env.NOTIFICATION_SERVICE_URL || "http://localhost:8015"
+          }/notification/ctrl/api/v1/create`,
+          {
+            userId: order.userId,
+            message: `Your driver is ${estimatedMinutes} minutes away`,
+            type: "DRIVER_LOCATION_UPDATE",
+            orderId: order._id,
+          }
+        );
+      }
+    } catch (notificationError) {
+      console.error("Failed to send location notification:", notificationError);
+      // Continue with the process even if notification fails
+    }
+
+    res.json({
+      success: true,
+      message: "Driver location updated successfully",
+    });
+  } catch (error) {
+    console.error("Error updating driver location:", error);
+    res.status(500).json({
+      message: "Error updating driver location",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// Helper function to determine if we should send a location notification
+function shouldSendLocationNotification(order) {
+  // If no previous notifications have been sent, definitely send one
+  if (
+    !order.delivery.locationHistory ||
+    order.delivery.locationHistory.length <= 1
+  ) {
+    return true;
+  }
+
+  // Check if it's been at least 5 minutes since the last notification
+  const lastLocation =
+    order.delivery.locationHistory[order.delivery.locationHistory.length - 2];
+  const timeSinceLastUpdate =
+    Date.now() - new Date(lastLocation.timestamp).getTime();
+
+  // 5 minutes = 300000 milliseconds
+  return timeSinceLastUpdate > 300000;
+}
+
+// Helper function to calculate estimated arrival time
+function calculateEstimatedArrival(driverLat, driverLng, destinationCoords) {
+  // If destination coordinates aren't available, return a default estimate
+  if (
+    !destinationCoords ||
+    !destinationCoords.latitude ||
+    !destinationCoords.longitude
+  ) {
+    return 15; // Default 15 minutes
+  }
+
+  // Simple calculation based on "as the crow flies" distance
+  // In a real app, you'd use a routing service like Google Maps API for accurate estimates
+  const distance = calculateDistance(
+    driverLat,
+    driverLng,
+    destinationCoords.latitude,
+    destinationCoords.longitude
+  );
+
+  // Assuming average speed of 30 km/h in city traffic
+  // Convert distance (in km) to minutes: (distance / speed) * 60
+  const estimatedMinutes = Math.round((distance / 30) * 60);
+
+  // Return a reasonable minimum value
+  return Math.max(estimatedMinutes, 2);
+}
+
+// Calculate distance between two coordinates using Haversine formula
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) *
+      Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c; // Distance in km
+  return distance;
+}
+
+function deg2rad(deg) {
+  return deg * (Math.PI / 180);
+}
