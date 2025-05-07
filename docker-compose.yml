@@ -1,136 +1,139 @@
 version: "3"
 
 services:
+  # Database
   mongodb:
     image: mongo:latest
     ports:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
-    networks:
-      - mademe_network
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    ports:
-      - "5672:5672" # AMQP port
-      - "15672:15672" # Management UI
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
     environment:
-      - RABBITMQ_DEFAULT_USER=mademe
-      - RABBITMQ_DEFAULT_PASS=mademe_password # Change in production
-    networks:
-      - mademe_network
+      - MONGO_INITDB_ROOT_USERNAME=mademe
+      - MONGO_INITDB_ROOT_PASSWORD=mademe_password # Change in production
 
-  api-gateway:
-    image: nginx:latest
-    ports:
-      - "80:80"
-    volumes:
-      - ./api-gateway/nginx.conf:/etc/nginx/nginx.conf
-    depends_on:
-      - cart-service
-      - order-service
-      - payment-service
-      - user-service
-      - restaurant-service
-    networks:
-      - mademe_network
-
+  # Frontend
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
     ports:
       - "5173:5173"
-    environment:
-      - VITE_API_GATEWAY_URL=http://localhost:80
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       - api-gateway
-    networks:
-      - mademe_network
+    environment:
+      - VITE_API_URL=http://localhost:5000
+      - VITE_WEBSOCKET_URL=ws://localhost:5000
+      - NODE_ENV=development
 
-  cart-service:
-    build: ./cart-service
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./api-gateway
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./api-gateway:/app
+      - /app/node_modules
+    depends_on:
+      - user-service
+      - restaurant-service
+      - order-service
+      - payment-service
+      - delivery-service
+    environment:
+      - PORT=5000
+      - USER_SERVICE_URL=http://user-service:5002
+      - RESTAURANT_SERVICE_URL=http://restaurant-service:5003
+      - ORDER_SERVICE_URL=http://order-service:5001
+      - PAYMENT_SERVICE_URL=http://payment-service:5004
+      - DELIVERY_SERVICE_URL=http://delivery-service:5005
+      - JWT_SECRET=your_jwt_secret_key_here # Change in production
+      - NODE_ENV=development
+
+  # User Service
+  user-service:
+    build:
+      context: ./user-service
     ports:
       - "5002:5002"
+    volumes:
+      - ./user-service:/app
+      - /app/node_modules
+    depends_on:
+      - mongodb
     environment:
       - PORT=5002
-      - MONGODB_URI=mongodb://mongodb:27017/cart-service
-      - BYPASS_AUTH=true
-      - RABBITMQ_URL=amqp://mademe:mademe_password@rabbitmq:5672
-    depends_on:
-      - mongodb
-      - rabbitmq
-    networks:
-      - mademe_network
+      - MONGODB_URI=mongodb://mademe:mademe_password@mongodb:27017/mademe_users?authSource=admin
+      - JWT_SECRET=your_jwt_secret_key_here # Change in production
+      - NODE_ENV=development
 
+  # Order Service
   order-service:
-    build: ./order-service
+    build:
+      context: ./order-service
     ports:
       - "5001:5001"
+    volumes:
+      - ./order-service:/app
+      - /app/node_modules
+    depends_on:
+      - mongodb
     environment:
       - PORT=5001
-      - MONGODB_URI=mongodb://mongodb:27017/order-service
-      - PAYMENT_SERVICE_URL=http://payment-service:5003
-      - RESTAURANT_SERVICE_URL=http://restaurant-service:5005
-      - RABBITMQ_URL=amqp://mademe:mademe_password@rabbitmq:5672
-    depends_on:
-      - mongodb
-      - rabbitmq
-    networks:
-      - mademe_network
+      - MONGODB_URI=mongodb://mademe:mademe_password@mongodb:27017/mademe_orders?authSource=admin
+      - NODE_ENV=development
 
-  payment-service:
-    build: ./payment-service
+  # Restaurant Service
+  restaurant-service:
+    build:
+      context: ./restaurant-service
     ports:
       - "5003:5003"
+    volumes:
+      - ./restaurant-service:/app
+      - /app/node_modules
+    depends_on:
+      - mongodb
     environment:
       - PORT=5003
-      - MONGODB_URI=mongodb://mongodb:27017/payment-service
-      - ORDER_SERVICE_URL=http://order-service:5001
-      - RABBITMQ_URL=amqp://mademe:mademe_password@rabbitmq:5672
-    depends_on:
-      - mongodb
-      - rabbitmq
-    networks:
-      - mademe_network
+      - MONGODB_URI=mongodb://mademe:mademe_password@mongodb:27017/mademe_restaurants?authSource=admin
+      - NODE_ENV=development
 
-  user-service:
-    build: ./user-service
+  # Payment Service
+  payment-service:
+    build:
+      context: ./payment-service
     ports:
       - "5004:5004"
+    volumes:
+      - ./payment-service:/app
+      - /app/node_modules
+    depends_on:
+      - mongodb
     environment:
       - PORT=5004
-      - MONGODB_URI=mongodb://mongodb:27017/mademe-users
-      - JWT_SECRET=your_jwt_secret_replace_in_production
-      - JWT_EXPIRATION=24h
-      - FRONTEND_URL=http://frontend:5173
-      - RABBITMQ_URL=amqp://mademe:mademe_password@rabbitmq:5672
-    depends_on:
-      - mongodb
-      - rabbitmq
-    networks:
-      - mademe_network
+      - MONGODB_URI=mongodb://mademe:mademe_password@mongodb:27017/mademe_payments?authSource=admin
+      - STRIPE_SECRET_KEY=your_stripe_secret_key_here # Replace with your Stripe test key
+      - NODE_ENV=development
 
-  restaurant-service:
-    build: ./restaurant-service
+  # Delivery Service
+  delivery-service:
+    build:
+      context: ./delivery-service
     ports:
       - "5005:5005"
-    environment:
-      - PORT=5005
-      - MONGODB_URI=mongodb://mongodb:27017/mademe-restaurants
-      - JWT_SECRET=your_jwt_secret_replace_in_production
-      - RABBITMQ_URL=amqp://mademe:mademe_password@rabbitmq:5672
+    volumes:
+      - ./delivery-service:/app
+      - /app/node_modules
     depends_on:
       - mongodb
-      - rabbitmq
-    networks:
-      - mademe_network
-
-networks:
-  mademe_network:
-    driver: bridge
+    environment:
+      - PORT=5005
+      - MONGODB_URI=mongodb://mademe:mademe_password@mongodb:27017/mademe_delivery?authSource=admin
+      - NODE_ENV=development
 
 volumes:
   mongodb_data:
-  rabbitmq_data:

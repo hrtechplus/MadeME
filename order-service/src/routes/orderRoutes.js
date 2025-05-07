@@ -16,14 +16,6 @@ router.get(
   orderController.getAllOrders
 );
 
-// Get pending orders (admin only)
-router.get(
-  "/admin/pending",
-  verifyToken,
-  verifyAdmin,
-  orderController.getPendingOrders
-);
-
 // Create order by admin (admin only)
 router.post(
   "/admin/create",

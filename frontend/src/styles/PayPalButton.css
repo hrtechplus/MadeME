@@ -1,0 +1,70 @@
+.paypal-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffc439;
+  color: #003087;
+  border: none;
+  border-radius: 4px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  width: 100%;
+  max-width: 300px;
+  margin: 10px 0;
+  position: relative;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.paypal-button:hover {
+  background-color: #f7c343;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.paypal-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.paypal-button:disabled {
+  background-color: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.paypal-logo {
+  height: 18px;
+  margin-right: 10px;
+}
+
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(0, 48, 135, 0.2);
+  border-radius: 50%;
+  border-top-color: #003087;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* For smaller screens */
+@media (max-width: 576px) {
+  .paypal-button {
+    font-size: 14px;
+    padding: 10px 16px;
+  }
+
+  .paypal-logo {
+    height: 16px;
+  }
+}

@@ -1,7 +1,6 @@
 const Order = require("../models/Order");
 const { validationResult } = require("express-validator");
-const serviceClient = require("../utils/serviceClient");
-const rabbitMQ = require("../utils/rabbitmq");
+const axios = require("axios");
 
 // Create new order
 exports.createOrder = async (req, res) => {
@@ -17,24 +16,6 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: "Order items cannot be empty" });
     }
 
-    // Validate restaurant exists (synchronous HTTP communication)
-    try {
-      const restaurant = await serviceClient.getRestaurantById(restaurantId);
-      if (!restaurant) {
-        return res.status(404).json({ message: "Restaurant not found" });
-      }
-
-      console.log(
-        `Restaurant ${restaurant.name} found and available for order`
-      );
-    } catch (error) {
-      console.error("Error verifying restaurant:", error.message);
-      return res.status(400).json({
-        message: "Could not verify restaurant",
-        error: error.message,
-      });
-    }
-
     // Create new order
     const order = new Order({
       userId,
@@ -47,48 +28,7 @@ exports.createOrder = async (req, res) => {
     });
 
     await order.save();
-
-    // Send notification to restaurant service via RabbitMQ (asynchronous communication)
-    await rabbitMQ.publishMessage("new-order-notifications", {
-      orderId: order._id,
-      restaurantId,
-      userId,
-      items,
-      total,
-      timestamp: new Date().toISOString(),
-    });
-    console.log(`New order notification sent to restaurant ${restaurantId}`);
-
-    // Initiate payment process via HTTP (synchronous communication)
-    try {
-      const paymentIntent = await serviceClient.createPaymentIntent({
-        orderId: order._id,
-        amount: total,
-        currency: "usd",
-        userId,
-      });
-
-      // Update order with payment ID
-      order.paymentId = paymentIntent.id;
-      await order.save();
-
-      console.log(`Payment intent created for order ${order._id}`);
-
-      // Return both order and payment intent to client
-      res.status(201).json({
-        order,
-        paymentIntent,
-      });
-    } catch (error) {
-      console.error("Error creating payment intent:", error.message);
-
-      // Still return the order, but with error message
-      res.status(201).json({
-        order,
-        paymentError:
-          "Error creating payment intent. Please try payment again.",
-      });
-    }
+    res.status(201).json(order);
   } catch (error) {
     console.error("Order creation error:", error);
     res.status(500).json({
@@ -98,7 +38,7 @@ exports.createOrder = async (req, res) => {
   }
 };
 
-// Update order status with message queue notification
+// Update order status
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -126,8 +66,8 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    // Track old status for change detection
-    const oldStatus = order.status;
+    // Admin check - this route is already protected by the verifyAdmin middleware
+    // So if we get here, user is already an admin and we can skip permission checks
 
     // Update the status
     order.status = status;
@@ -142,47 +82,6 @@ exports.updateOrderStatus = async (req, res) => {
 
     await order.save();
 
-    // Notify other services of status change via message queue
-    if (oldStatus !== status) {
-      await rabbitMQ.publishMessage("order-status-updates", {
-        orderId: order._id,
-        restaurantId: order.restaurantId,
-        userId: order.userId,
-        oldStatus,
-        newStatus: status,
-        timestamp: new Date().toISOString(),
-      });
-      console.log(
-        `Order status change notification sent: ${oldStatus} -> ${status}`
-      );
-
-      // If cancelled or rejected, notify payment service for potential refund
-      if (status === "CANCELLED" || status === "REJECTED") {
-        if (order.paymentId) {
-          try {
-            // Sync HTTP call for immediate refund action
-            await serviceClient.getPaymentStatus(order._id);
-
-            // Also send async message
-            await rabbitMQ.publishMessage("payment-refund-requests", {
-              orderId: order._id,
-              paymentId: order.paymentId,
-              amount: order.total,
-              reason:
-                status === "CANCELLED" ? "Order cancelled" : "Order rejected",
-              timestamp: new Date().toISOString(),
-            });
-            console.log(`Refund request sent for order ${order._id}`);
-          } catch (error) {
-            console.error(
-              `Error requesting refund for order ${order._id}:`,
-              error.message
-            );
-          }
-        }
-      }
-    }
-
     res.json(order);
   } catch (error) {
     console.error("Error updating order status:", error);
@@ -193,7 +92,7 @@ exports.updateOrderStatus = async (req, res) => {
   }
 };
 
-// Handle restaurant response with message queue notification
+// Handle restaurant response
 exports.handleRestaurantResponse = async (req, res) => {
   try {
     const { id } = req.params;
@@ -217,41 +116,6 @@ exports.handleRestaurantResponse = async (req, res) => {
     }
 
     await order.save();
-
-    // Notify other services via message queue
-    await rabbitMQ.publishMessage("restaurant-response-notifications", {
-      orderId: order._id,
-      restaurantId: order.restaurantId,
-      userId: order.userId,
-      response,
-      reason: reason || null,
-      status: order.status,
-      timestamp: new Date().toISOString(),
-    });
-    console.log(`Restaurant response notification sent: ${response}`);
-
-    // If rejected, handle refund via payment service
-    if (response === "REJECTED" && order.paymentId) {
-      try {
-        // Async notification for payment service
-        await rabbitMQ.publishMessage("payment-refund-requests", {
-          orderId: order._id,
-          paymentId: order.paymentId,
-          amount: order.total,
-          reason: `Order rejected by restaurant: ${
-            reason || "No reason provided"
-          }`,
-          timestamp: new Date().toISOString(),
-        });
-        console.log(`Refund request sent for rejected order ${order._id}`);
-      } catch (error) {
-        console.error(
-          `Error requesting refund for order ${order._id}:`,
-          error.message
-        );
-      }
-    }
-
     res.json(order);
   } catch (error) {
     res.status(500).json({
@@ -271,61 +135,6 @@ exports.getUserOrders = async (req, res) => {
     res
       .status(500)
       .json({ message: "Error fetching user orders", error: error.message });
-  }
-};
-
-// Method to update order payment status - called by message queue consumer
-exports.updateOrderPaymentStatus = async (
-  orderId,
-  paymentStatus,
-  paymentId
-) => {
-  try {
-    const order = await Order.findById(orderId);
-
-    if (!order) {
-      console.error(`Order not found for payment update: ${orderId}`);
-      return null;
-    }
-
-    // Update payment information
-    order.paymentStatus = paymentStatus;
-    order.paymentId = paymentId || order.paymentId;
-
-    // If payment succeeded, update order status if still pending
-    if (paymentStatus === "succeeded" && order.status === "PENDING") {
-      order.status = "VERIFYING";
-    }
-
-    // If payment failed, mark order as failed
-    if (paymentStatus === "failed") {
-      order.status = "CANCELLED";
-      order.rejectionReason = "Payment failed";
-    }
-
-    await order.save();
-    console.log(`Order ${orderId} payment status updated to ${paymentStatus}`);
-
-    // Notify restaurant if payment succeeded
-    if (paymentStatus === "succeeded") {
-      await rabbitMQ.publishMessage("new-order-notifications", {
-        orderId: order._id,
-        restaurantId: order.restaurantId,
-        userId: order.userId,
-        items: order.items,
-        total: order.total,
-        timestamp: new Date().toISOString(),
-        paymentConfirmed: true,
-      });
-      console.log(
-        `Payment success notification sent to restaurant ${order.restaurantId}`
-      );
-    }
-
-    return order;
-  } catch (error) {
-    console.error(`Error updating order payment status: ${error.message}`);
-    return null;
   }
 };
 
@@ -407,38 +216,6 @@ exports.getAllOrders = async (req, res) => {
     res
       .status(500)
       .json({ message: "Error fetching all orders", error: error.message });
-  }
-};
-
-// Get pending orders (admin only)
-exports.getPendingOrders = async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
-
-    // Build query for pending orders
-    let query = { status: "PENDING" };
-
-    if (startDate && endDate) {
-      query.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate),
-      };
-    }
-
-    const orders = await Order.find(query)
-      .sort({ createdAt: -1 })
-      .populate("userId", "name email")
-      .populate("restaurantId", "name address");
-
-    res.json({
-      success: true,
-      count: orders.length,
-      orders,
-    });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error fetching pending orders", error: error.message });
   }
 };
 
