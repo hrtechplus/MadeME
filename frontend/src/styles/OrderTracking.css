@@ -386,6 +386,230 @@
   border-radius: 4px;
 }
 
+/* Delivery Progress Bar Styles */
+.delivery-progress-bar {
+  margin: 30px 0;
+}
+
+.progress-steps-container {
+  position: relative;
+  margin-bottom: 30px;
+}
+
+.progress-step-connector {
+  position: absolute;
+  top: 25px;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background-color: #e0e0e0;
+  z-index: 1;
+}
+
+.connector-line {
+  height: 100%;
+  background-color: #4caf50;
+  transition: width 0.8s ease-in-out;
+}
+
+.progress-steps {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  z-index: 2;
+}
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  width: 70px;
+}
+
+.step-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: white;
+  font-size: 20px;
+  margin-bottom: 8px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.step-label {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: #555;
+}
+
+/* Step Status Styles */
+.step-pending .step-icon {
+  background-color: #e0e0e0;
+  color: #757575;
+}
+
+.step-active .step-icon {
+  background-color: #2196f3;
+  color: white;
+  box-shadow: 0 0 0 5px rgba(33, 150, 243, 0.2);
+  transform: scale(1.1);
+}
+
+.step-active .step-label {
+  color: #2196f3;
+  font-weight: 600;
+}
+
+.step-complete .step-icon {
+  background-color: #4caf50;
+  color: white;
+}
+
+.step-disabled .step-icon {
+  background-color: #e0e0e0;
+  color: #757575;
+  opacity: 0.5;
+}
+
+.step-disabled .step-label {
+  color: #757575;
+  opacity: 0.5;
+}
+
+/* Error Progress State */
+.delivery-progress-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background-color: #ffebee;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.delivery-progress-error .progress-step {
+  margin-bottom: 20px;
+}
+
+.delivery-progress-error .step-active .step-icon {
+  background-color: #f44336;
+  box-shadow: 0 0 0 5px rgba(244, 67, 54, 0.2);
+}
+
+.progress-message {
+  text-align: center;
+  color: #d32f2f;
+  font-style: italic;
+}
+
+/* Current Step Details Styles */
+.current-step-details {
+  margin: 20px 0;
+}
+
+.step-detail-card {
+  display: flex;
+  align-items: center;
+  background-color: #f5f5f5;
+  border-left: 4px solid #2196f3;
+  padding: 15px;
+  border-radius: 4px;
+}
+
+.detail-icon {
+  font-size: 30px;
+  margin-right: 15px;
+}
+
+.detail-text p {
+  margin: 5px 0;
+}
+
+.detail-estimate {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Status History Timeline */
+.status-history {
+  margin-top: 40px;
+  border-top: 1px dashed #e0e0e0;
+  padding-top: 20px;
+}
+
+.status-history h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 18px;
+  color: #333;
+}
+
+.history-timeline {
+  position: relative;
+  padding-left: 30px;
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 25px;
+}
+
+.timeline-item:before {
+  content: '';
+  position: absolute;
+  left: -30px;
+  top: 0;
+  bottom: -25px;
+  width: 2px;
+  background-color: #e0e0e0;
+}
+
+.timeline-item:last-child:before {
+  bottom: 0;
+}
+
+.timeline-point {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #2196f3;
+  left: -36px;
+  top: 5px;
+}
+
+.timeline-content {
+  background-color: #f9f9f9;
+  padding: 15px;
+  border-radius: 4px;
+}
+
+.timeline-title {
+  margin: 0 0 8px 0;
+  font-weight: bold;
+  color: #333;
+}
+
+.timeline-time {
+  margin: 0;
+  font-size: 14px;
+  color: #757575;
+}
+
+.timeline-reason {
+  margin: 8px 0 0;
+  font-style: italic;
+  color: #f44336;
+}
+
+/* Responsive Styles for Progress Bar */
 @media (max-width: 768px) {
   .tracking-header {
     flex-direction: column;
@@ -409,5 +633,25 @@
   .navigation-links {
     flex-direction: column;
     gap: 10px;
+  }
+
+  .progress-steps {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+  }
+  
+  .progress-step-connector {
+    display: none;
+  }
+  
+  .step-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+  
+  .step-label {
+    font-size: 12px;
   }
 }

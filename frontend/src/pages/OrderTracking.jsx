@@ -161,6 +161,41 @@ const OrderTracking = () => {
     return Math.round((index / (statusOrder.length - 1)) * 100);
   };
 
+  // Helper function to get status index
+  const getStatusIndex = (status) => {
+    const statusOrder = [
+      "VERIFYING",
+      "PENDING",
+      "CONFIRMED",
+      "PREPARING",
+      "OUT_FOR_DELIVERY",
+      "DELIVERED",
+    ];
+    
+    return statusOrder.indexOf(status);
+  };
+
+  // Helper function to check if a step is complete
+  const isStepComplete = (stepStatus) => {
+    return getStatusIndex(trackingData.status) >= getStatusIndex(stepStatus);
+  };
+
+  // Helper function to check if a step is active
+  const isStepActive = (stepStatus) => {
+    return trackingData.status === stepStatus;
+  };
+
+  // Helper function to get step status class
+  const getStepStatusClass = (stepStatus) => {
+    if (["CANCELLED", "REJECTED"].includes(trackingData.status)) {
+      return stepStatus === trackingData.status ? "step-active" : "step-disabled";
+    }
+    
+    if (isStepActive(stepStatus)) return "step-active";
+    if (isStepComplete(stepStatus)) return "step-complete";
+    return "step-pending";
+  };
+
   return (
     <div className="order-tracking-container">
       <div className="tracking-header">
@@ -194,23 +229,116 @@ const OrderTracking = () => {
         )}
 
         <div className="progress-section">
-          <div className="progress-bar">
-            <div
-              className="progress-fill"
-              style={{ width: `${calculateProgress()}%` }}
-            ></div>
-          </div>
-          <div className="progress-steps">
-            {trackingData.trackingHistory.map((step, index) => (
-              <div key={index} className="step-item">
-                <div className="step-point"></div>
-                <div className="step-details">
-                  <p className="step-title">{step.status}</p>
-                  <p className="step-time">{formatDate(step.timestamp)}</p>
-                  {step.reason && <p className="step-reason">{step.reason}</p>}
+          {/* Step Progress Bar */}
+          <div className="delivery-progress-bar">
+            {["CANCELLED", "REJECTED"].includes(trackingData.status) ? (
+              <div className="delivery-progress-error">
+                <div className={`progress-step ${getStepStatusClass(trackingData.status)}`}>
+                  <div className="step-icon">✕</div>
+                  <div className="step-label">{trackingData.status === "CANCELLED" ? "Cancelled" : "Rejected"}</div>
+                </div>
+                <div className="progress-message">
+                  {trackingData.trackingHistory.find(history => 
+                    history.status === trackingData.status)?.reason || 
+                    "This order is no longer being processed."}
                 </div>
               </div>
-            ))}
+            ) : (
+              <>
+                <div className="progress-steps-container">
+                  <div className="progress-step-connector">
+                    <div className="connector-line" 
+                         style={{ width: `${calculateProgress()}%` }}></div>
+                  </div>
+                  <div className="progress-steps">
+                    <div className={`progress-step ${getStepStatusClass("CONFIRMED")}`}>
+                      <div className="step-icon">
+                        {isStepComplete("CONFIRMED") ? "✓" : "1"}
+                      </div>
+                      <div className="step-label">Confirmed</div>
+                    </div>
+                    <div className={`progress-step ${getStepStatusClass("PREPARING")}`}>
+                      <div className="step-icon">
+                        {isStepComplete("PREPARING") ? "✓" : "2"}
+                      </div>
+                      <div className="step-label">Preparing</div>
+                    </div>
+                    <div className={`progress-step ${getStepStatusClass("OUT_FOR_DELIVERY")}`}>
+                      <div className="step-icon">
+                        {isStepComplete("OUT_FOR_DELIVERY") ? "✓" : "3"}
+                      </div>
+                      <div className="step-label">Out for Delivery</div>
+                    </div>
+                    <div className={`progress-step ${getStepStatusClass("DELIVERED")}`}>
+                      <div className="step-icon">
+                        {isStepComplete("DELIVERED") ? "✓" : "4"}
+                      </div>
+                      <div className="step-label">Delivered</div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Current Step Details */}
+                <div className="current-step-details">
+                  {trackingData.status === "PREPARING" && (
+                    <div className="step-detail-card">
+                      <div className="detail-icon">👨‍🍳</div>
+                      <div className="detail-text">
+                        <p>Your order is being freshly prepared at the restaurant.</p>
+                        <p className="detail-estimate">Estimated preparation time: 15-20 minutes</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {trackingData.status === "OUT_FOR_DELIVERY" && (
+                    <div className="step-detail-card">
+                      <div className="detail-icon">🚚</div>
+                      <div className="detail-text">
+                        <p>Your order is on the way to your location!</p>
+                        <p className="detail-estimate">
+                          Estimated arrival: {trackingData.estimatedDeliveryTime ? 
+                            formatDate(trackingData.estimatedDeliveryTime) : 
+                            "Soon"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {trackingData.status === "DELIVERED" && (
+                    <div className="step-detail-card">
+                      <div className="detail-icon">✅</div>
+                      <div className="detail-text">
+                        <p>Your order has been delivered. Enjoy your meal!</p>
+                        <p className="detail-estimate">
+                          Delivered at: {trackingData.trackingHistory.find(
+                            h => h.status === "DELIVERED")?.timestamp ? 
+                            formatDate(trackingData.trackingHistory.find(
+                              h => h.status === "DELIVERED").timestamp) : 
+                            "Recently"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+          
+          {/* Order Status History */}
+          <div className="status-history">
+            <h3>Order History</h3>
+            <div className="history-timeline">
+              {trackingData.trackingHistory.map((step, index) => (
+                <div key={index} className="timeline-item">
+                  <div className="timeline-point"></div>
+                  <div className="timeline-content">
+                    <p className="timeline-title">{step.status}</p>
+                    <p className="timeline-time">{formatDate(step.timestamp)}</p>
+                    {step.reason && <p className="timeline-reason">{step.reason}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 

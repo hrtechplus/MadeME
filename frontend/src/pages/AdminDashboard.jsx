@@ -311,6 +311,70 @@ const AdminDashboard = () => {
   const { serviceUrls, handleApiCall, makeApiCall } = useApi();
   const { showToast } = useToast();
 
+  // Add state variables for the delivery service tab
+  const [drivers, setDrivers] = useState([]);
+  const [selectedDriver, setSelectedDriver] = useState(null);
+  const [showDriverModal, setShowDriverModal] = useState(false);
+  const [driverEditMode, setDriverEditMode] = useState(false);
+  const [showNewDriverModal, setShowNewDriverModal] = useState(false);
+  const [driverDeleteConfirmation, setDriverDeleteConfirmation] = useState({
+    show: false,
+    driverId: null,
+  });
+  const [driverForm, setDriverForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    address: "",
+    city: "",
+    phone: "",
+    status: "idle",
+    location: "",
+    vehicle: "medium",
+    deliveries: 0,
+    rating: 0,
+    currentdelivery: [],
+  });
+
+  // Driver filter states
+  const [driverStatusFilter, setDriverStatusFilter] = useState("all");
+  const [driverVehicleFilter, setDriverVehicleFilter] = useState("all");
+  const [driverSearchFilter, setDriverSearchFilter] = useState("");
+
+  // Driver pagination states
+  const [driverCurrentPage, setDriverCurrentPage] = useState(1);
+  const [driversPerPage] = useState(10);
+  const indexOfLastDriver = driverCurrentPage * driversPerPage;
+  const indexOfFirstDriver = indexOfLastDriver - driversPerPage;
+  const filteredDrivers = drivers.filter((driver) => {
+    // Apply status filter
+    if (driverStatusFilter !== "all" && driver.status !== driverStatusFilter) {
+      return false;
+    }
+    // Apply vehicle filter
+    if (
+      driverVehicleFilter !== "all" &&
+      driver.vehicle !== driverVehicleFilter
+    ) {
+      return false;
+    }
+    // Apply search filter
+    if (driverSearchFilter) {
+      const searchTerm = driverSearchFilter.toLowerCase();
+      return (
+        driver.name.toLowerCase().includes(searchTerm) ||
+        driver.email.toLowerCase().includes(searchTerm) ||
+        driver.phone.toLowerCase().includes(searchTerm)
+      );
+    }
+    return true;
+  });
+  const currentDrivers = filteredDrivers.slice(
+    indexOfFirstDriver,
+    indexOfLastDriver
+  );
+  const totalDriverPages = Math.ceil(filteredDrivers.length / driversPerPage);
+
   // Function to fetch user details and update the cache
   const fetchUserDetails = async (userId) => {
     // Check if user details already exist in cache
@@ -367,6 +431,8 @@ const AdminDashboard = () => {
       fetchPayments();
     } else if (activeTab === "restaurants") {
       fetchRestaurants();
+    } else if (activeTab === "drivers") {
+      fetchDrivers();
     }
   }, [
     activeTab,
@@ -375,6 +441,9 @@ const AdminDashboard = () => {
     paymentMethodFilter,
     restaurantFilters,
     dateFilter,
+    driverStatusFilter,
+    driverVehicleFilter,
+    driverSearchFilter,
   ]);
 
   const fetchOrders = async () => {
@@ -2763,6 +2832,273 @@ const AdminDashboard = () => {
     setShowModal(true);
   };
 
+  // Function to fetch delivery drivers
+  const fetchDrivers = async () => {
+    try {
+      setLoading(true);
+
+      // Use serviceUrls from ApiContext or fallback to a direct URL
+      const deliveryServiceUrl = serviceUrls?.delivery || "http://localhost:8000";
+      
+      const response = await handleApiCall(
+        fetch(`${deliveryServiceUrl}/deliverydriver/api/v1/drivers`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+        })
+      );
+
+      if (response.data) {
+        setDrivers(response.data || []);
+      } else {
+        setDrivers([]);
+        showToast("No drivers found or unauthorized access", "warning");
+      }
+      
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching drivers:", error);
+      showToast(
+        "Failed to fetch delivery drivers. Please ensure you have admin access.",
+        "error"
+      );
+      setLoading(false);
+      setDrivers([]);
+    }
+  };
+
+  // Render the Drivers Tab content
+  const renderDriversTab = () => (
+    <>
+      <h2>Delivery Driver Management</h2>
+      <div className="filters">
+        <div className="filter-group">
+          <label htmlFor="driver-status-filter">Driver Status</label>
+          <select
+            id="driver-status-filter"
+            value={driverStatusFilter}
+            onChange={(e) => setDriverStatusFilter(e.target.value)}
+          >
+            <option value="all">All Statuses</option>
+            <option value="idle">Idle</option>
+            <option value="on-route">On Route</option>
+            <option value="arrived">Arrived</option>
+            <option value="delivered">Delivered</option>
+            <option value="offline">Offline</option>
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label htmlFor="driver-vehicle-filter">Vehicle Type</label>
+          <select
+            id="driver-vehicle-filter"
+            value={driverVehicleFilter}
+            onChange={(e) => setDriverVehicleFilter(e.target.value)}
+          >
+            <option value="all">All Vehicles</option>
+            <option value="small">Small</option>
+            <option value="medium">Medium</option>
+            <option value="large">Large</option>
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label htmlFor="driver-search">Search Drivers</label>
+          <div className="search-input-wrapper">
+            <input
+              id="driver-search"
+              type="text"
+              placeholder="Search by name, email, phone..."
+              value={driverSearchFilter}
+              onChange={(e) => setDriverSearchFilter(e.target.value)}
+            />
+            <span className="search-icon">
+              <SearchIcon />
+            </span>
+          </div>
+        </div>
+
+        <div className="action-buttons">
+          <button
+            className="refresh-btn"
+            onClick={fetchDrivers}
+            aria-label="Refresh drivers"
+          >
+            <RefreshIcon /> Refresh
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              resetDriverForm();
+              setShowNewDriverModal(true);
+            }}
+          >
+            <AddIcon /> Add Driver
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <LoadingSpinner />
+      ) : (
+        <>
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Driver ID</th>
+                  <th>Name</th>
+                  <th>Contact</th>
+                  <th>Location</th>
+                  <th>Vehicle</th>
+                  <th>Status</th>
+                  <th>Deliveries</th>
+                  <th>Rating</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentDrivers.length > 0 ? (
+                  currentDrivers.map((driver) => (
+                    <tr key={driver._id}>
+                      <td>{driver._id.substring(0, 8)}...</td>
+                      <td>{driver.name}</td>
+                      <td>
+                        <div className="contact-info">
+                          <div>{driver.email}</div>
+                          <div className="phone small">{driver.phone}</div>
+                        </div>
+                      </td>
+                      <td>
+                        {driver.city}
+                        {driver.location ? (
+                          <span className="location-coordinates small">
+                            {typeof driver.location === 'string' 
+                              ? driver.location 
+                              : `${driver.location.coordinates ? driver.location.coordinates.join(', ') : 'No coordinates'}`}
+                          </span>
+                        ) : (
+                          "N/A"
+                        )}
+                      </td>
+                      <td>{driver.vehicle || "Medium"}</td>
+                      <td>
+                        <StatusBadge status={driver.status || "idle"} />
+                      </td>
+                      <td>{driver.deliveries || 0}</td>
+                      <td>{driver.rating ? driver.rating.toFixed(1) : "N/A"}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <button
+                            onClick={() => viewDriverDetails(driver)}
+                            className="btn btn-secondary"
+                            aria-label="View driver details"
+                          >
+                            <ViewIcon /> View
+                          </button>
+                          <button
+                            onClick={() => {
+                              editDriver(driver);
+                            }}
+                            className="btn btn-primary"
+                            aria-label="Edit driver"
+                          >
+                            <EditIcon /> Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              setDriverDeleteConfirmation({
+                                show: true,
+                                driverId: driver._id,
+                              });
+                            }}
+                            className="btn btn-danger"
+                            aria-label="Delete driver"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="9">
+                      <EmptyState message="No delivery drivers found with the selected filters." />
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredDrivers.length > 0 && (
+            <PaginationControls
+              currentPage={driverCurrentPage}
+              totalPages={totalDriverPages}
+              paginate={setDriverCurrentPage}
+            />
+          )}
+
+          <StatsBar
+            total={filteredDrivers.length}
+            showingFrom={indexOfFirstDriver + 1}
+            showingTo={indexOfLastDriver}
+          />
+        </>
+      )}
+
+      {/* Driver Details Modal */}
+      <Modal
+        isOpen={showDriverModal}
+        onClose={closeDriverModal}
+        title={driverEditMode ? "Edit Driver" : "Driver Details"}
+      >
+        {renderDriverDetailsContent()}
+      </Modal>
+
+      {/* Create New Driver Modal */}
+      <Modal
+        isOpen={showNewDriverModal}
+        onClose={() => setShowNewDriverModal(false)}
+        title="Add New Driver"
+      >
+        {renderDriverForm(false)}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={driverDeleteConfirmation.show}
+        onClose={() =>
+          setDriverDeleteConfirmation({ show: false, driverId: null })
+        }
+        title="Confirm Deletion"
+      >
+        <div className="confirmation-modal">
+          <p>Are you sure you want to delete this driver?</p>
+          <p className="warning">This action cannot be undone.</p>
+          <div className="form-actions">
+            <button
+              className="btn btn-secondary"
+              onClick={() =>
+                setDriverDeleteConfirmation({ show: false, driverId: null })
+              }
+            >
+              Cancel
+            </button>
+            <button
+              className="btn btn-danger"
+              onClick={() => handleDeleteDriver(driverDeleteConfirmation.driverId)}
+            >
+              Delete Driver
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </>
+  );
+
   useEffect(() => {
     // After orders are fetched, load user details for each order
     if (orders.length > 0 && activeTab === "orders") {
@@ -2773,6 +3109,483 @@ const AdminDashboard = () => {
       });
     }
   }, [orders, activeTab]);
+
+  // Driver CRUD functions
+  const handleDriverFormChange = (e) => {
+    const { name, value } = e.target;
+    setDriverForm({ ...driverForm, [name]: value });
+  };
+
+  const resetDriverForm = () => {
+    setDriverForm({
+      name: "",
+      email: "",
+      password: "",
+      address: "",
+      city: "",
+      phone: "",
+      status: "idle",
+      location: "",
+      vehicle: "medium",
+      deliveries: 0,
+      rating: 0,
+      currentdelivery: [],
+    });
+  };
+
+  const viewDriverDetails = (driver) => {
+    setSelectedDriver(driver);
+    setShowDriverModal(true);
+    setDriverEditMode(false);
+  };
+
+  const editDriver = (driver) => {
+    setSelectedDriver(driver);
+    setDriverForm({
+      ...driver,
+      // Don't include password field when editing
+      password: "",
+    });
+    setDriverEditMode(true);
+    setShowDriverModal(true);
+  };
+
+  const closeDriverModal = () => {
+    setShowDriverModal(false);
+    setSelectedDriver(null);
+    setDriverEditMode(false);
+    resetDriverForm();
+  };
+
+  const handleSubmitDriverForm = async (e) => {
+    e.preventDefault();
+
+    try {
+      setLoading(true);
+
+      if (driverEditMode) {
+        await updateDriver();
+      } else {
+        await createDriver();
+      }
+
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      console.error("Error submitting driver form:", error);
+      showToast("Error submitting driver form", "error");
+    }
+  };
+
+  const createDriver = async () => {
+    try {
+      const deliveryServiceUrl = serviceUrls?.delivery || "http://localhost:8000";
+      
+      const response = await handleApiCall(
+        fetch(`${deliveryServiceUrl}/deliverydriver/api/v1/auth/register`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+          body: JSON.stringify(driverForm),
+        })
+      );
+
+      showToast("Driver created successfully", "success");
+
+      // Add new driver to state
+      setDrivers([response.data, ...drivers]);
+
+      // Close modal and reset form
+      setShowNewDriverModal(false);
+      resetDriverForm();
+    } catch (error) {
+      console.error("Error creating driver:", error);
+      showToast("Failed to create driver", "error");
+    }
+  };
+
+  const updateDriver = async () => {
+    try {
+      const deliveryServiceUrl = serviceUrls?.delivery || "http://localhost:8000";
+      
+      // Don't send password if it's empty
+      const updatedDriverData = { ...driverForm };
+      if (!updatedDriverData.password) {
+        delete updatedDriverData.password;
+      }
+
+      await handleApiCall(
+        fetch(`${deliveryServiceUrl}/deliverydriver/api/v1/admin/drivers/${selectedDriver._id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+          body: JSON.stringify(updatedDriverData),
+        })
+      );
+
+      showToast("Driver updated successfully", "success");
+
+      // Update driver in state
+      setDrivers(
+        drivers.map((driver) =>
+          driver._id === selectedDriver._id ? { ...driver, ...driverForm } : driver
+        )
+      );
+
+      // Close modal and reset edit mode
+      setShowDriverModal(false);
+      setDriverEditMode(false);
+      setSelectedDriver(null);
+      resetDriverForm();
+    } catch (error) {
+      console.error("Error updating driver:", error);
+      showToast("Failed to update driver", "error");
+    }
+  };
+
+  const handleDeleteDriver = async (driverId) => {
+    try {
+      setLoading(true);
+      const deliveryServiceUrl = serviceUrls?.delivery || "http://localhost:8000";
+
+      await handleApiCall(
+        fetch(`${deliveryServiceUrl}/deliverydriver/api/v1/admin/drivers/${driverId}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+        })
+      );
+
+      showToast("Driver deleted successfully", "success");
+
+      // Remove deleted driver from state
+      setDrivers(drivers.filter((driver) => driver._id !== driverId));
+
+      // Close confirmation modal
+      setDriverDeleteConfirmation({ show: false, driverId: null });
+
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      console.error("Error deleting driver:", error);
+      showToast("Failed to delete driver", "error");
+    }
+  };
+
+  const updateDriverStatus = async (driverId, newStatus) => {
+    try {
+      const deliveryServiceUrl = serviceUrls?.delivery || "http://localhost:8000";
+
+      await handleApiCall(
+        fetch(`${deliveryServiceUrl}/deliverydriver/api/v1/admin/drivers/${driverId}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "x-admin-auth": "true",
+          },
+          body: JSON.stringify({ status: newStatus }),
+        })
+      );
+
+      showToast(`Driver status updated to ${newStatus}`, "success");
+
+      // Update driver status in state
+      setDrivers(
+        drivers.map((driver) =>
+          driver._id === driverId
+            ? { ...driver, status: newStatus }
+            : driver
+        )
+      );
+
+      // If the driver is being viewed in modal, update there too
+      if (selectedDriver && selectedDriver._id === driverId) {
+        setSelectedDriver({ ...selectedDriver, status: newStatus });
+      }
+    } catch (error) {
+      console.error("Error updating driver status:", error);
+      showToast("Failed to update driver status", "error");
+    }
+  };
+
+  // Render the Driver Form for create/edit
+  const renderDriverForm = (isEditMode) => {
+    return (
+      <form onSubmit={handleSubmitDriverForm} className="driver-form">
+        <div className="form-grid">
+          <div className="form-column">
+            <div className="form-group">
+              <label htmlFor="driver-name">Full Name</label>
+              <input
+                id="driver-name"
+                type="text"
+                name="name"
+                value={driverForm.name}
+                onChange={handleDriverFormChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="driver-email">Email Address</label>
+              <input
+                id="driver-email"
+                type="email"
+                name="email"
+                value={driverForm.email}
+                onChange={handleDriverFormChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="driver-phone">Phone Number</label>
+              <input
+                id="driver-phone"
+                type="tel"
+                name="phone"
+                value={driverForm.phone}
+                onChange={handleDriverFormChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="driver-password">
+                {isEditMode ? "New Password (leave blank to keep current)" : "Password"}
+              </label>
+              <input
+                id="driver-password"
+                type="password"
+                name="password"
+                value={driverForm.password}
+                onChange={handleDriverFormChange}
+                required={!isEditMode}
+              />
+            </div>
+          </div>
+
+          <div className="form-column">
+            <div className="form-group">
+              <label htmlFor="driver-address">Street Address</label>
+              <input
+                id="driver-address"
+                type="text"
+                name="address"
+                value={driverForm.address}
+                onChange={handleDriverFormChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="driver-city">City</label>
+              <input
+                id="driver-city"
+                type="text"
+                name="city"
+                value={driverForm.city}
+                onChange={handleDriverFormChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="driver-vehicle">Vehicle Type</label>
+              <select
+                id="driver-vehicle"
+                name="vehicle"
+                value={driverForm.vehicle}
+                onChange={handleDriverFormChange}
+                required
+              >
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="driver-status">Status</label>
+              <select
+                id="driver-status"
+                name="status"
+                value={driverForm.status}
+                onChange={handleDriverFormChange}
+                required
+              >
+                <option value="idle">Idle</option>
+                <option value="on-route">On Route</option>
+                <option value="arrived">Arrived</option>
+                <option value="delivered">Delivered</option>
+                <option value="offline">Offline</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="form-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => {
+              if (isEditMode) {
+                setShowDriverModal(false);
+                setDriverEditMode(false);
+                setSelectedDriver(null);
+              } else {
+                setShowNewDriverModal(false);
+              }
+              resetDriverForm();
+            }}
+          >
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-primary">
+            {isEditMode ? "Update Driver" : "Add Driver"}
+          </button>
+        </div>
+      </form>
+    );
+  };
+
+  // Render the Driver Details Modal content
+  const renderDriverDetailsContent = () => {
+    if (!selectedDriver) return null;
+
+    if (driverEditMode) {
+      return renderDriverForm(true);
+    }
+
+    return (
+      <>
+        <div className="info-grid">
+          <div className="info-section">
+            <h3>Driver Information</h3>
+            <p>
+              <strong>Driver ID:</strong> {selectedDriver._id}
+            </p>
+            <p>
+              <strong>Name:</strong> {selectedDriver.name}
+            </p>
+            <p>
+              <strong>Status:</strong> <StatusBadge status={selectedDriver.status || "idle"} />
+            </p>
+            <p>
+              <strong>Vehicle Type:</strong> {selectedDriver.vehicle || "Medium"}
+            </p>
+            <p>
+              <strong>Completed Deliveries:</strong> {selectedDriver.deliveries || 0}
+            </p>
+            <p>
+              <strong>Rating:</strong> {selectedDriver.rating ? `${selectedDriver.rating.toFixed(1)} / 5` : "N/A"}
+            </p>
+            <p>
+              <strong>Joined:</strong> {selectedDriver.createdAt ? formatDate(selectedDriver.createdAt) : "N/A"}
+            </p>
+          </div>
+
+          <div className="info-section">
+            <h3>Contact Information</h3>
+            <p>
+              <strong>Email:</strong> {selectedDriver.email}
+            </p>
+            <p>
+              <strong>Phone:</strong> {selectedDriver.phone}
+            </p>
+            <p>
+              <strong>Address:</strong> {selectedDriver.address}
+            </p>
+            <p>
+              <strong>City:</strong> {selectedDriver.city}
+            </p>
+          </div>
+        </div>
+
+        {selectedDriver.currentdelivery && selectedDriver.currentdelivery.length > 0 && (
+          <div className="additional-section">
+            <h3>Current Deliveries</h3>
+            <div className="table-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Status</th>
+                    <th>Restaurant</th>
+                    <th>Delivery Address</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedDriver.currentdelivery.map((delivery) => (
+                    <tr key={delivery.orderId}>
+                      <td>{delivery.orderId}</td>
+                      <td>
+                        <StatusBadge status={delivery.status || "pending"} />
+                      </td>
+                      <td>{delivery.restaurantName || "Unknown"}</td>
+                      <td>{delivery.deliveryAddress || "N/A"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {selectedDriver.location && (
+          <div className="additional-section">
+            <h3>Current Location</h3>
+            <p>
+              {typeof selectedDriver.location === 'string'
+                ? selectedDriver.location
+                : selectedDriver.location.coordinates
+                ? `Coordinates: ${selectedDriver.location.coordinates.join(', ')}`
+                : 'Location data not available'}
+            </p>
+            {/* Map could be added here in the future */}
+          </div>
+        )}
+
+        <div className="form-actions">
+          <div className="filter-group" style={{ marginRight: "auto" }}>
+            <label htmlFor="update-driver-status">Update Status</label>
+            <select
+              id="update-driver-status"
+              value={selectedDriver.status || "idle"}
+              onChange={(e) =>
+                updateDriverStatus(selectedDriver._id, e.target.value)
+              }
+              className="status-select"
+            >
+              <option value="idle">Idle</option>
+              <option value="on-route">On Route</option>
+              <option value="arrived">Arrived</option>
+              <option value="delivered">Delivered</option>
+              <option value="offline">Offline</option>
+            </select>
+          </div>
+
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              editDriver(selectedDriver);
+            }}
+          >
+            <EditIcon /> Edit Driver
+          </button>
+        </div>
+      </>
+    );
+  };
 
   return (
     <div className="admin-dashboard">
@@ -2808,12 +3621,22 @@ const AdminDashboard = () => {
         >
           Restaurant Management
         </button>
+        <button
+          className={`tab-button ${activeTab === "drivers" ? "active" : ""}`}
+          onClick={() => {
+            setActiveTab("drivers");
+            setDriverCurrentPage(1);
+          }}
+        >
+          Delivery Drivers
+        </button>
       </div>
 
       {/* Render tab content based on activeTab */}
       {activeTab === "orders" && renderOrdersTab()}
       {activeTab === "payments" && renderPaymentsTab()}
       {activeTab === "restaurants" && renderRestaurantsTab()}
+      {activeTab === "drivers" && renderDriversTab()}
 
       {/* Order Details Modal */}
       <Modal isOpen={showModal} onClose={closeModal} title="Order Details">
