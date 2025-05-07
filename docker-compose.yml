@@ -1,4 +1,4 @@
-version: "3"
+version: "3.8"
 
 services:
   # Database
@@ -14,15 +14,20 @@ services:
 
   # Frontend
   frontend:
-    build:
-      context: ./frontend
+    build: ./frontend
     ports:
-      - "5173:5173"
+      - "3000:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     depends_on:
-      - api-gateway
+      - user-service
+      - restaurant-service
+      - cart-service
+      - order-service
+      - payment-service
+      - delivery-service
+      - notification-service
     environment:
       - VITE_API_URL=http://localhost:5000
       - VITE_WEBSOCKET_URL=ws://localhost:5000
@@ -45,95 +50,116 @@ services:
       - delivery-service
     environment:
       - PORT=5000
-      - USER_SERVICE_URL=http://user-service:5002
-      - RESTAURANT_SERVICE_URL=http://restaurant-service:5003
-      - ORDER_SERVICE_URL=http://order-service:5001
-      - PAYMENT_SERVICE_URL=http://payment-service:5004
-      - DELIVERY_SERVICE_URL=http://delivery-service:5005
+      - USER_SERVICE_URL=http://user-service:8001
+      - RESTAURANT_SERVICE_URL=http://restaurant-service:8002
+      - ORDER_SERVICE_URL=http://order-service:8004
+      - PAYMENT_SERVICE_URL=http://payment-service:8005
+      - DELIVERY_SERVICE_URL=http://delivery-service:8016
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8015
       - JWT_SECRET=your_jwt_secret_key_here # Change in production
       - NODE_ENV=development
 
   # User Service
   user-service:
-    build:
-      context: ./user-service
+    build: ./user-service
     ports:
-      - "5002:5002"
+      - "8001:8001"
     volumes:
       - ./user-service:/app
       - /app/node_modules
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/user-service
+      - PORT=8001
     depends_on:
       - mongodb
-    environment:
-      - PORT=5002
-      - MONGODB_URI=mongodb://mademe:mademe_password@mongodb:27017/mademe_users?authSource=admin
-      - JWT_SECRET=your_jwt_secret_key_here # Change in production
-      - NODE_ENV=development
 
   # Order Service
   order-service:
-    build:
-      context: ./order-service
+    build: ./order-service
     ports:
-      - "5001:5001"
+      - "8004:8004"
     volumes:
       - ./order-service:/app
       - /app/node_modules
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/order-service
+      - PORT=8004
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8015
+      - DELIVERY_SERVICE_URL=http://delivery-service:8016
+      - USER_SERVICE_URL=http://user-service:8001
+      - RESTAURANT_SERVICE_URL=http://restaurant-service:8002
     depends_on:
       - mongodb
-    environment:
-      - PORT=5001
-      - MONGODB_URI=mongodb://mademe:mademe_password@mongodb:27017/mademe_orders?authSource=admin
-      - NODE_ENV=development
+      - notification-service
+      - delivery-service
 
   # Restaurant Service
   restaurant-service:
-    build:
-      context: ./restaurant-service
+    build: ./restaurant-service
     ports:
-      - "5003:5003"
+      - "8002:8002"
     volumes:
       - ./restaurant-service:/app
       - /app/node_modules
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/restaurant-service
+      - PORT=8002
     depends_on:
       - mongodb
-    environment:
-      - PORT=5003
-      - MONGODB_URI=mongodb://mademe:mademe_password@mongodb:27017/mademe_restaurants?authSource=admin
-      - NODE_ENV=development
 
   # Payment Service
   payment-service:
-    build:
-      context: ./payment-service
+    build: ./payment-service
     ports:
-      - "5004:5004"
+      - "8005:8005"
     volumes:
       - ./payment-service:/app
       - /app/node_modules
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/payment-service
+      - PORT=8005
     depends_on:
       - mongodb
-    environment:
-      - PORT=5004
-      - MONGODB_URI=mongodb://mademe:mademe_password@mongodb:27017/mademe_payments?authSource=admin
-      - STRIPE_SECRET_KEY=your_stripe_secret_key_here # Replace with your Stripe test key
-      - NODE_ENV=development
 
   # Delivery Service
   delivery-service:
-    build:
-      context: ./delivery-service
+    build: ./delivery-service
     ports:
-      - "5005:5005"
+      - "8016:8016"
     volumes:
       - ./delivery-service:/app
       - /app/node_modules
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/delivery-service
+      - PORT=8016
+      - ORDER_SERVICE_URL=http://order-service:8004
+      - SECRET_KEY=delivery_service_secret
+      - ALGORITHM=HS256
     depends_on:
       - mongodb
+
+  # Cart Service
+  cart-service:
+    build: ./cart-service
+    ports:
+      - "8003:8003"
     environment:
-      - PORT=5005
-      - MONGODB_URI=mongodb://mademe:mademe_password@mongodb:27017/mademe_delivery?authSource=admin
-      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongodb:27017/cart-service
+      - PORT=8003
+    depends_on:
+      - mongodb
+
+  # Notification Service
+  notification-service:
+    build: ./notification-service
+    ports:
+      - "8015:8015"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/notification-service
+      - PORT=8015
+      - ORDER_SERVICE_URL=http://order-service:8004
+    depends_on:
+      - mongodb
 
 volumes:
   mongodb_data:

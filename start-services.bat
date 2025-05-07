@@ -1,48 +1,80 @@
 @echo off
-echo Starting MadeME[SLIIT] Food...
+echo Starting MadeME Food Delivery System...
 
 echo.
 echo Option 1: Run with Docker Compose (recommended)
-echo Option 2: Run services individually with npm
+echo Option 2: Run services individually
 echo.
-SET /P CHOICE="Enter your choice (1 or 2): "
 
-IF "%CHOICE%"=="1" (
+set /p CHOICE=Enter your choice (1 or 2): 
+
+if "%CHOICE%"=="1" (
     echo Starting all services with Docker Compose...
     docker-compose up
-) ELSE IF "%CHOICE%"=="2" (
-    REM Start MongoDB if not already running
+) else if "%CHOICE%"=="2" (
     echo Starting MongoDB...
-    start /b mongod || echo MongoDB might already be running
-    
-    REM Start Backend Services with proper environment variables
+    start mongod --fork --logpath C:\tmp\mongod.log
+
     echo Starting Order Service...
-    start cmd /k "cd order-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& set PORT=5001&& npm run dev"
-    
+    cd order-service
+    start cmd /k "set NODE_ENV=development && set BYPASS_AUTH=true && set PORT=8004 && npm start"
+    cd ..
+
     echo Starting Payment Service...
-    start cmd /k "cd payment-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& set PORT=5003&& npm run dev"
-    
+    cd payment-service
+    start cmd /k "set NODE_ENV=development && set BYPASS_AUTH=true && set PORT=8005 && npm start"
+    cd ..
+
     echo Starting Cart Service...
-    start cmd /k "cd cart-service && set NODE_ENV=development&& set BYPASS_AUTH=true&& set PORT=5002&& npm run dev"
-    
+    cd cart-service
+    start cmd /k "set NODE_ENV=development && set BYPASS_AUTH=true && set PORT=8003 && npm start"
+    cd ..
+
     echo Starting User Service...
-    start cmd /k "cd user-service && set NODE_ENV=development&& set PORT=5004&& npm run dev"
-    
+    cd user-service
+    start cmd /k "set NODE_ENV=development && set PORT=8001 && npm start"
+    cd ..
+
     echo Starting Restaurant Service...
-    start cmd /k "cd restaurant-service && set NODE_ENV=development&& set PORT=5005&& npm run dev"
-    
-    REM Start Frontend
+    cd restaurant-service
+    start cmd /k "set NODE_ENV=development && set PORT=8002 && npm start"
+    cd ..
+
+    echo Starting Delivery Service...
+    cd deliveryservicev1
+    if not exist venv (
+        python -m venv venv
+    )
+    start cmd /k "venv\Scripts\activate && pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8016 --reload"
+    cd ..
+
+    echo Starting Notification Service...
+    cd notificationservicev1
+    if not exist venv (
+        python -m venv venv
+    )
+    start cmd /k "venv\Scripts\activate && pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8015 --reload"
+    cd ..
+
     echo Starting Frontend...
-    start cmd /k "cd frontend && npm run dev"
-    
+    cd frontend
+    start cmd /k "npm run dev"
+    cd ..
+
+    echo.
     echo All services started successfully!
-    echo Frontend: http://localhost:5173
-    echo Order Service: http://localhost:5001
-    echo Payment Service: http://localhost:5003
-    echo Cart Service: http://localhost:5002
-    echo User Service: http://localhost:5004
-    echo Restaurant Service: http://localhost:5005
-) ELSE (
+    echo Frontend: http://localhost:3000
+    echo Order Service: http://localhost:8004
+    echo Payment Service: http://localhost:8005
+    echo Cart Service: http://localhost:8003
+    echo User Service: http://localhost:8001
+    echo Restaurant Service: http://localhost:8002
+    echo Delivery Service: http://localhost:8016
+    echo Notification Service: http://localhost:8015
+    echo.
+    echo Press any key to stop all services...
+    pause > nul
+) else (
     echo Invalid choice. Please run the script again and enter 1 or 2.
     exit /b 1
 )

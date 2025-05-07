@@ -19,6 +19,22 @@ const orderItemSchema = new mongoose.Schema({
   },
 });
 
+// Add this new schema for delivery tracking
+const locationSchema = new mongoose.Schema({
+  latitude: {
+    type: Number,
+    required: true,
+  },
+  longitude: {
+    type: Number,
+    required: true,
+  },
+  timestamp: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
 const orderSchema = new mongoose.Schema({
   userId: {
     type: String,
@@ -60,6 +76,11 @@ const orderSchema = new mongoose.Schema({
     city: String,
     state: String,
     zipCode: String,
+    // Add address coordinates for mapping
+    coordinates: {
+      latitude: Number,
+      longitude: Number,
+    },
   },
   specialInstructions: {
     type: String,
@@ -68,8 +89,31 @@ const orderSchema = new mongoose.Schema({
   paymentId: {
     type: String,
   },
-  driverId: {
-    type: String,
+  // Enhanced driver information
+  delivery: {
+    driverId: {
+      type: String,
+    },
+    driverName: {
+      type: String,
+    },
+    driverPhone: {
+      type: String,
+    },
+    assignedAt: {
+      type: Date,
+    },
+    estimatedDeliveryTime: {
+      type: Date,
+    },
+    actualDeliveryTime: {
+      type: Date,
+    },
+    currentLocation: locationSchema,
+    locationHistory: [locationSchema],
+    deliveryNotes: {
+      type: String,
+    },
   },
   // Admin-specific fields
   adminCreated: {
