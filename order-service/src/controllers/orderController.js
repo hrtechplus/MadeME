@@ -410,6 +410,38 @@ exports.getAllOrders = async (req, res) => {
   }
 };
 
+// Get pending orders (admin only)
+exports.getPendingOrders = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    // Build query for pending orders
+    let query = { status: "PENDING" };
+
+    if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
+      .populate("userId", "name email")
+      .populate("restaurantId", "name address");
+
+    res.json({
+      success: true,
+      count: orders.length,
+      orders,
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error fetching pending orders", error: error.message });
+  }
+};
+
 // Complete the cancel order functionality
 exports.cancelOrder = async (req, res) => {
   try {

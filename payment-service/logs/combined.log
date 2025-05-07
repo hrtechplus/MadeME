@@ -4383,3 +4383,11 @@
 {"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-01T19:24:32.432Z"}
 {"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-02T05:40:15.847Z"}
 {"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-02T05:40:17.503Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-04T15:47:28.073Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-04T15:47:29.803Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-04T15:48:56.165Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-04T15:48:57.662Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-07T10:11:16.403Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-07T10:11:18.209Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-07T10:27:24.954Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-07T10:27:26.558Z"}
