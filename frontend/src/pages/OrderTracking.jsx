@@ -201,16 +201,34 @@ const OrderTracking = () => {
             ></div>
           </div>
           <div className="progress-steps">
-            {trackingData.trackingHistory.map((step, index) => (
-              <div key={index} className="step-item">
-                <div className="step-point"></div>
-                <div className="step-details">
-                  <p className="step-title">{step.status}</p>
-                  <p className="step-time">{formatDate(step.timestamp)}</p>
-                  {step.reason && <p className="step-reason">{step.reason}</p>}
+            {[
+              { status: "Order Placed", icon: "📦" },
+              { status: "Confirmed", icon: "✓" },
+              { status: "Preparing", icon: "👨‍🍳" },
+              { status: "Out for Delivery", icon: "🚚" },
+              { status: "Delivered", icon: "🎉" },
+            ].map((step, index) => {
+              const isCompleted = calculateProgress() >= index * 25;
+              const isCurrent =
+                trackingData.status ===
+                step.status.toUpperCase().replace(/\s+/g, "_");
+              return (
+                <div
+                  key={index}
+                  className={`step-item ${isCompleted ? "completed" : ""} ${
+                    isCurrent ? "current" : ""
+                  }`}
+                >
+                  <div className="step-point">
+                    <span className="step-icon">{step.icon}</span>
+                  </div>
+                  <div className="step-details">
+                    <p className="step-title">{step.status}</p>
+                    {isCurrent && <p className="step-time">Current Status</p>}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

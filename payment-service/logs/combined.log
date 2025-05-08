@@ -5114,3 +5114,49 @@
 {"level":"error","message":"Error updating order status: Request failed with status code 403","service":"payment-service","timestamp":"2025-05-07T11:24:58.111Z"}
 {"level":"info","message":"::1 - - [07/May/2025:11:24:58 +0000] \"POST /api/payment/process HTTP/1.1\" 200 155 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-05-07T11:24:58.115Z"}
 {"level":"info","message":"::1 - - [07/May/2025:11:32:24 +0000] \"GET /api/payment/admin/all? HTTP/1.1\" 200 8093 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-05-07T11:32:24.032Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:09:54.551Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:09:56.109Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:12:11.856Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:12:13.409Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:12:34.057Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:12:35.608Z"}
+{"level":"info","message":"Creating PayPal order for order: 681c4c30ec9cb074ae80fa8a, amount: $64.95","service":"payment-service","timestamp":"2025-05-08T06:16:19.267Z"}
+{"level":"info","message":"Created payment record with ID: 681c4c3331b1792a54ac7c97","service":"payment-service","timestamp":"2025-05-08T06:16:19.429Z"}
+{"level":"info","message":"Initializing PayPal with environment: SANDBOX","service":"payment-service","timestamp":"2025-05-08T06:16:19.430Z"}
+{"level":"info","message":"Sending request to PayPal to create order","service":"payment-service","timestamp":"2025-05-08T06:16:19.436Z"}
+{"level":"info","message":"PayPal order created successfully with ID: 8GM31339JD5430159","service":"payment-service","timestamp":"2025-05-08T06:16:22.834Z"}
+{"level":"info","message":"Updated payment record with PayPal order ID: 8GM31339JD5430159","service":"payment-service","timestamp":"2025-05-08T06:16:22.972Z"}
+{"level":"info","message":"PayPal approval URL: https://www.sandbox.paypal.com/checkoutnow?token=8GM31339JD5430159","service":"payment-service","timestamp":"2025-05-08T06:16:22.972Z"}
+{"level":"info","message":"::1 - - [08/May/2025:06:16:22 +0000] \"POST /api/payment/paypal/create-order HTTP/1.1\" 200 174 \"http://localhost:5173/\" \"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36\"","service":"payment-service","timestamp":"2025-05-08T06:16:22.978Z"}
+{"level":"info","message":"Initializing PayPal with environment: SANDBOX","service":"payment-service","timestamp":"2025-05-08T06:16:26.159Z"}
+{"level":"info","message":"PayPal order 8GM31339JD5430159 status from PayPal: CREATED","service":"payment-service","timestamp":"2025-05-08T06:16:26.695Z"}
+{"level":"info","message":"::1 - - [08/May/2025:06:16:26 +0000] \"GET /api/payment/verify/681c4c3331b1792a54ac7c97 HTTP/1.1\" 200 190 \"http://localhost:5173/\" \"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36\"","service":"payment-service","timestamp":"2025-05-08T06:16:26.697Z"}
+{"level":"info","message":"Initializing PayPal with environment: SANDBOX","service":"payment-service","timestamp":"2025-05-08T06:16:29.141Z"}
+{"level":"info","message":"PayPal order 8GM31339JD5430159 status from PayPal: CREATED","service":"payment-service","timestamp":"2025-05-08T06:16:29.922Z"}
+{"level":"info","message":"::1 - - [08/May/2025:06:16:29 +0000] \"GET /api/payment/verify/681c4c3331b1792a54ac7c97 HTTP/1.1\" 304 - \"http://localhost:5173/\" \"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36\"","service":"payment-service","timestamp":"2025-05-08T06:16:29.924Z"}
+{"level":"info","message":"Initializing PayPal with environment: SANDBOX","service":"payment-service","timestamp":"2025-05-08T06:16:32.146Z"}
+{"level":"info","message":"PayPal order 8GM31339JD5430159 status from PayPal: CREATED","service":"payment-service","timestamp":"2025-05-08T06:16:33.062Z"}
+{"level":"info","message":"::1 - - [08/May/2025:06:16:33 +0000] \"GET /api/payment/verify/681c4c3331b1792a54ac7c97 HTTP/1.1\" 304 - \"http://localhost:5173/\" \"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36\"","service":"payment-service","timestamp":"2025-05-08T06:16:33.063Z"}
+{"level":"info","message":"Initializing PayPal with environment: SANDBOX","service":"payment-service","timestamp":"2025-05-08T06:16:35.140Z"}
+{"level":"info","message":"PayPal order 8GM31339JD5430159 status from PayPal: CREATED","service":"payment-service","timestamp":"2025-05-08T06:16:35.700Z"}
+{"level":"info","message":"::1 - - [08/May/2025:06:16:35 +0000] \"GET /api/payment/verify/681c4c3331b1792a54ac7c97 HTTP/1.1\" 304 - \"http://localhost:5173/\" \"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36\"","service":"payment-service","timestamp":"2025-05-08T06:16:35.703Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:17:09.826Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:17:11.368Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:17:24.593Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:17:26.121Z"}
+{"level":"info","message":"::1 - - [08/May/2025:06:18:47 +0000] \"GET /api/payment/admin/all? HTTP/1.1\" 200 8093 \"http://localhost:5173/\" \"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36\"","service":"payment-service","timestamp":"2025-05-08T06:18:47.450Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:26:56.265Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:26:57.744Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:27:08.537Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:27:10.143Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:29:58.665Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:30:09.595Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:30:11.287Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:32:39.969Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:32:41.435Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:33:05.578Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:33:07.201Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:40:13.604Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:40:15.176Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:40:27.918Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:40:29.524Z"}
