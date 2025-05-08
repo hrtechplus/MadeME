@@ -5189,3 +5189,11 @@
 {"level":"info","message":"Payment service running on port 8005 ","service":"payment-service","timestamp":"2025-05-07T17:04:55.693Z"}
 {"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-07T17:04:57.605Z"}
 >>>>>>> 97ed16a13919e16662deabe550d5d5d479679256
+{"level":"info","message":"Payment service running on port 8005 ","service":"payment-service","timestamp":"2025-05-08T05:53:22.460Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T05:53:24.034Z"}
+{"level":"info","message":"Payment service running on port 8005 ","service":"payment-service","timestamp":"2025-05-08T05:56:06.098Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T05:56:07.818Z"}
+{"level":"info","message":"Payment service running on port 8005 ","service":"payment-service","timestamp":"2025-05-08T05:56:44.795Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T05:56:46.515Z"}
+{"level":"info","message":"Payment service running on port 8005 ","service":"payment-service","timestamp":"2025-05-08T05:58:40.743Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T05:58:42.506Z"}
