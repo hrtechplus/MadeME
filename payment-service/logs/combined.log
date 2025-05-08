@@ -5109,3 +5109,11 @@
 {"level":"info","message":"::1 - - [07/May/2025:11:15:21 +0000] \"GET /api/payment/verify/681b40c0731fe0584a9bdff5 HTTP/1.1\" 304 - \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-05-07T11:15:21.911Z"}
 {"level":"info","message":"::1 - - [07/May/2025:11:19:07 +0000] \"GET /api/payment/admin/all? HTTP/1.1\" 200 8100 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-05-07T11:19:07.271Z"}
 {"level":"info","message":"::1 - - [07/May/2025:11:19:09 +0000] \"GET /api/payment/admin/all? HTTP/1.1\" 304 - \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\"","service":"payment-service","timestamp":"2025-05-07T11:19:09.919Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:00:24.635Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:00:26.203Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:00:32.679Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:00:34.231Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:00:44.114Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:00:45.702Z"}
+{"level":"info","message":"Payment service running on port 5003","service":"payment-service","timestamp":"2025-05-08T06:09:36.483Z"}
+{"level":"info","message":"Connected to MongoDB","service":"payment-service","timestamp":"2025-05-08T06:09:37.987Z"}
