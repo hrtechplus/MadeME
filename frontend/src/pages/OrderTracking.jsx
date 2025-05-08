@@ -232,7 +232,7 @@ const OrderTracking = () => {
           </div>
         </div>
 
-        <div className="action-buttons">
+        {/* <div className="action-buttons">
           {trackingData.canBeModified && (
             <button className="modify-btn" onClick={handleModifyOrder}>
               Modify Order
@@ -244,7 +244,7 @@ const OrderTracking = () => {
               Cancel Order
             </button>
           )}
-        </div>
+        </div> */}
       </div>
 
       <div className="order-details-card">
