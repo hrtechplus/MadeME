@@ -1,0 +1,26 @@
+{
+  "name": "mademe-tests",
+  "version": "1.0.0",
+  "description": "Automated tests for MadeME food delivery app",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha selenium/*.js --timeout 60000",
+    "test:db": "node db-tests/database-test.js"
+  },
+  "keywords": [
+    "selenium",
+    "test",
+    "automation"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chai": "^4.3.7",
+    "chromedriver": "^135.0.0",
+    "dotenv": "^16.0.3",
+    "mocha": "^10.2.0",
+    "mongoose": "^6.10.0",
+    "selenium-webdriver": "^4.10.0",
+    "uuid": "^9.0.0"
+  }
+}

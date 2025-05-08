@@ -251,13 +251,14 @@ function AppContent() {
             element={<RestaurantMenu />}
           />
           <Route
-            path="/cart"
+            path="/restaurant-management"
             element={
               <ProtectedRoute>
-                <Cart />
+                <RestaurantManagement />
               </ProtectedRoute>
             }
           />
+          <Route path="/cart" element={<Cart />} />
           <Route
             path="/checkout"
             element={
@@ -274,27 +275,13 @@ function AppContent() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/payment/success"
-            element={
-              <ProtectedRoute>
-                <PaymentSuccess />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/payment/cancel"
-            element={
-              <ProtectedRoute>
-                <PaymentCancel />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/payment/success" element={<PaymentSuccess />} />
+          <Route path="/payment/cancel" element={<PaymentCancel />} />
           <Route
             path="/orders"
             element={
               <ProtectedRoute>
-                <Orders />
+                <OrderHistory />
               </ProtectedRoute>
             }
           />

@@ -963,7 +963,7 @@ const OrderHistory = () => {
                                 mb: 0.5,
                               }}
                             >
-                              <strong>Payment Method:</strong>
+                              {/* <strong>Payment Method:</strong>
                               <Box
                                 sx={{
                                   display: "flex",
@@ -973,7 +973,7 @@ const OrderHistory = () => {
                               >
                                 {getPaymentMethodIcon(order.paymentMethod)}
                                 {order.paymentMethod || "Credit Card"}
-                              </Box>
+                              </Box> */}
                             </Box>
                             <Box
                               sx={{
@@ -1010,9 +1010,7 @@ const OrderHistory = () => {
                         Details
                       </Button>
 
-                      {["PENDING", "CONFIRMED", "PREPARING"].includes(
-                        order.status
-                      ) && (
+                      {["PENDING", "PREPARING"].includes(order.status) && (
                         <Button
                           variant="outlined"
                           color="error"
@@ -1390,7 +1388,7 @@ const OrderHistory = () => {
               </Grid>
             </DialogContent>
             <DialogActions sx={{ borderTop: "1px solid #eee", px: 3, py: 2 }}>
-              {["PENDING", "CONFIRMED", "PREPARING"].includes(
+              {["PENDING", "PREPARING"].includes(
                 selectedOrderDetails.status
               ) && (
                 <Button

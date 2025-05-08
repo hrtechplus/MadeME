@@ -111,3 +111,22 @@ app.listen(PORT, () => {
   );
   console.log(`API base URL: http://localhost:${PORT}/api/orders`);
 });
+
+// Graceful shutdown
+process.on("SIGINT", async () => {
+  console.log("Shutting down order-service gracefully...");
+
+  try {
+    // Close MongoDB connection
+    if (mongoose.connection) {
+      await mongoose.connection.close();
+      console.log("MongoDB connection closed");
+    }
+
+    console.log("Shutdown completed successfully");
+    process.exit(0);
+  } catch (error) {
+    console.error("Error during shutdown:", error.message);
+    process.exit(1);
+  }
+});

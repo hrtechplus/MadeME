@@ -7,7 +7,7 @@ import "../styles/Checkout.css";
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const { serviceUrls, handleApiCall } = useApi();
+  const { serviceUrls } = useApi();
   const { showToast } = useToast();
   const { cart, clearCart, getTotalPrice } = useCart();
   const [loading, setLoading] = useState(false);
@@ -46,13 +46,37 @@ const Checkout = () => {
       return;
     }
 
+    const restaurantId = cart[0]?.restaurantId;
+    if (!restaurantId) {
+      setError("Restaurant ID is missing");
+      showToast("Restaurant ID is missing", "error");
+      return;
+    }
+
     try {
       setLoading(true);
+
+      // First verify that the restaurant exists and is active
+      const restaurantResponse = await fetch(
+        `${serviceUrls.restaurant}/api/restaurants/${restaurantId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      // If restaurant doesn't exist or is inactive, show error
+      if (!restaurantResponse.ok) {
+        throw new Error("Could not verify restaurant");
+      }
 
       // Create order
       const orderData = {
         userId: userId,
-        restaurantId: cart[0]?.restaurantId || "default-restaurant",
+        restaurantId: restaurantId,
         items: cart.map((item) => ({
           itemId: item.itemId,
           name: item.name,

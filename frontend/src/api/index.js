@@ -1,23 +1,12 @@
 import axios from "axios";
 
-// Create axios instances for each service
-const cartClient = axios.create({
-  baseURL: "http://localhost:5002/api",
-  timeout: 5000,
-});
+// Get the API Gateway URL from environment variables or use default
+const API_GATEWAY_URL =
+  import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:80";
 
-const orderClient = axios.create({
-  baseURL: "http://localhost:5001/api",
-  timeout: 5000,
-});
-
-const paymentClient = axios.create({
-  baseURL: "http://localhost:5003/api",
-  timeout: 5000,
-});
-
-const restaurantClient = axios.create({
-  baseURL: "http://localhost:5004/api",
+// Create a single axios instance for all services through the API Gateway
+const apiClient = axios.create({
+  baseURL: API_GATEWAY_URL,
   timeout: 5000,
 });
 
@@ -60,50 +49,44 @@ const handleError = (error) => {
   }
 };
 
-cartClient.interceptors.request.use(addAuthToken);
-orderClient.interceptors.request.use(addAuthToken);
-paymentClient.interceptors.request.use(addAuthToken);
-restaurantClient.interceptors.request.use(addAuthToken);
-
-cartClient.interceptors.response.use((response) => response, handleError);
-orderClient.interceptors.response.use((response) => response, handleError);
-paymentClient.interceptors.response.use((response) => response, handleError);
-restaurantClient.interceptors.response.use((response) => response, handleError);
+apiClient.interceptors.request.use(addAuthToken);
+apiClient.interceptors.response.use((response) => response, handleError);
 
 // Cart API functions
 export const cartApi = {
-  getCart: (userId) => cartClient.get(`/cart/${userId}`),
-  addToCart: (data) => cartClient.post("/cart/add", data),
+  getCart: (userId) => apiClient.get(`/api/cart/${userId}`),
+  addToCart: (data) => apiClient.post("/api/cart/add", data),
   updateItemQuantity: (userId, itemId, quantity) =>
-    cartClient.put(`/cart/${userId}/${itemId}`, { quantity }),
+    apiClient.put(`/api/cart/${userId}/${itemId}`, { quantity }),
   removeItem: (userId, itemId) =>
-    cartClient.delete(`/cart/${userId}/${itemId}`),
-  clearCart: (userId) => cartClient.delete(`/cart/${userId}`),
+    apiClient.delete(`/api/cart/${userId}/${itemId}`),
+  clearCart: (userId) => apiClient.delete(`/api/cart/${userId}`),
 };
 
 // Order API functions
 export const orderApi = {
-  createOrder: (data) => orderClient.post("/orders", data),
-  getOrders: (userId) => orderClient.get(`/orders/user/${userId}`),
-  getOrder: (orderId) => orderClient.get(`/orders/${orderId}`),
-  trackOrder: (orderId) => orderClient.get(`/orders/${orderId}/track`),
+  createOrder: (data) => apiClient.post("/api/orders", data),
+  getOrders: (userId) => apiClient.get(`/api/orders/user/${userId}`),
+  getOrder: (orderId) => apiClient.get(`/api/orders/${orderId}`),
+  trackOrder: (orderId) =>
+    apiClient.get(`http://localhost:5001/api/orders/${orderId}/track`),
   updateOrderStatus: (orderId, status) =>
-    orderClient.patch(`/orders/${orderId}/status`, { status }),
+    apiClient.patch(`/api/orders/${orderId}/status`, { status }),
   getRestaurantOrders: (restaurantId) =>
-    orderClient.get(`/orders/restaurant/${restaurantId}`),
+    apiClient.get(`/api/orders/restaurant/${restaurantId}`),
   assignDriver: (orderId, driverId) =>
-    orderClient.post(`/orders/${orderId}/assign-driver`, { driverId }),
+    apiClient.post(`/api/orders/${orderId}/assign-driver`, { driverId }),
   // Admin-specific endpoints
   getAllOrders: (filters = {}) =>
-    orderClient.get("/orders/admin/all", { params: filters }),
+    apiClient.get("/api/orders/admin/all", { params: filters }),
   updateOrder: (orderId, orderData) =>
-    orderClient.put(`/orders/${orderId}`, orderData),
-  deleteOrder: (orderId) => orderClient.delete(`/orders/${orderId}`),
+    apiClient.put(`/api/orders/${orderId}`, orderData),
+  deleteOrder: (orderId) => apiClient.delete(`/api/orders/${orderId}`),
   cancelOrder: (orderId, cancellationReason) =>
-    orderClient.post(`/orders/${orderId}/cancel`, { cancellationReason }),
+    apiClient.post(`/api/orders/${orderId}/cancel`, { cancellationReason }),
   // Alternative order cancellation method (doesn't require auth token validation)
   userCancelOrder: (orderId, userId, cancellationReason) =>
-    orderClient.post(`/orders/${orderId}/user-cancel`, {
+    apiClient.post(`/api/orders/${orderId}/user-cancel`, {
       userId,
       cancellationReason,
     }),
@@ -111,42 +94,56 @@ export const orderApi = {
 
 // Payment API functions
 export const paymentApi = {
-  createPaymentIntent: (data) => paymentClient.post("/payments/initiate", data),
+  createPaymentIntent: (data) => apiClient.post("/api/payments/initiate", data),
   getPaymentStatus: (orderId) =>
-    paymentClient.get(`/payments/order/${orderId}`),
+    apiClient.get(`/api/payments/order/${orderId}`),
 };
 
 // Restaurant API functions
 export const restaurantApi = {
   // Restaurant endpoints
   getAllRestaurants: (filters = {}) =>
-    restaurantClient.get("/restaurants", { params: filters }),
+    apiClient.get("/api/restaurants", { params: filters }),
   getRestaurantById: (restaurantId) =>
-    restaurantClient.get(`/restaurants/${restaurantId}`),
+    apiClient.get(`/api/restaurants/${restaurantId}`),
   createRestaurant: (restaurantData) =>
-    restaurantClient.post("/restaurants", restaurantData),
+    apiClient.post("/api/restaurants", restaurantData),
   updateRestaurant: (restaurantId, restaurantData) =>
-    restaurantClient.put(`/restaurants/${restaurantId}`, restaurantData),
+    apiClient.put(`/api/restaurants/${restaurantId}`, restaurantData),
   deleteRestaurant: (restaurantId) =>
-    restaurantClient.delete(`/restaurants/${restaurantId}`),
-  getMyRestaurants: () => restaurantClient.get("/restaurants/owner/me"),
+    apiClient.delete(`/api/restaurants/${restaurantId}`),
+  getMyRestaurants: () => apiClient.get("/api/restaurants/owner/me"),
 
   // Menu endpoints
   getMenuItems: (restaurantId, category) =>
-    restaurantClient.get(`/restaurants/${restaurantId}/menu`, {
+    apiClient.get(`/api/restaurants/${restaurantId}/menu`, {
       params: { category },
     }),
   getMenuItem: (restaurantId, menuItemId) =>
-    restaurantClient.get(`/restaurants/${restaurantId}/menu/${menuItemId}`),
+    apiClient.get(`/api/restaurants/${restaurantId}/menu/${menuItemId}`),
   addMenuItem: (restaurantId, menuItemData) =>
-    restaurantClient.post(`/restaurants/${restaurantId}/menu`, menuItemData),
+    apiClient.post(`/api/restaurants/${restaurantId}/menu`, menuItemData),
   updateMenuItem: (restaurantId, menuItemId, menuItemData) =>
-    restaurantClient.put(
-      `/restaurants/${restaurantId}/menu/${menuItemId}`,
+    apiClient.put(
+      `/api/restaurants/${restaurantId}/menu/${menuItemId}`,
       menuItemData
     ),
   deleteMenuItem: (restaurantId, menuItemId) =>
-    restaurantClient.delete(`/restaurants/${restaurantId}/menu/${menuItemId}`),
+    apiClient.delete(`/api/restaurants/${restaurantId}/menu/${menuItemId}`),
+};
+
+// User API functions - adding these to complete the API client
+export const userApi = {
+  login: (credentials) => apiClient.post("/api/users/login", credentials),
+  register: (userData) => apiClient.post("/api/users/register", userData),
+  getProfile: () => apiClient.get("/api/users/profile"),
+  updateProfile: (userData) => apiClient.put("/api/users/profile", userData),
+  // Admin-specific endpoints
+  getAllUsers: () => apiClient.get("/api/users/admin/all"),
+  getUserById: (userId) => apiClient.get(`/api/users/${userId}`),
+  updateUser: (userId, userData) =>
+    apiClient.put(`/api/users/${userId}`, userData),
+  deleteUser: (userId) => apiClient.delete(`/api/users/${userId}`),
 };
 
 // Export all APIs
@@ -155,4 +152,5 @@ export default {
   order: orderApi,
   payment: paymentApi,
   restaurant: restaurantApi,
+  user: userApi,
 };
