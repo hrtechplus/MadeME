@@ -68,7 +68,8 @@ export const orderApi = {
   createOrder: (data) => apiClient.post("/api/orders", data),
   getOrders: (userId) => apiClient.get(`/api/orders/user/${userId}`),
   getOrder: (orderId) => apiClient.get(`/api/orders/${orderId}`),
-  trackOrder: (orderId) => apiClient.get(`/api/orders/${orderId}/track`),
+  trackOrder: (orderId) =>
+    apiClient.get(`http://localhost:5001/api/orders/${orderId}/track`),
   updateOrderStatus: (orderId, status) =>
     apiClient.patch(`/api/orders/${orderId}/status`, { status }),
   getRestaurantOrders: (restaurantId) =>
